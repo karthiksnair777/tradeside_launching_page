@@ -39,7 +39,7 @@ export function JoinModal({ isOpen, onClose }: JoinModalProps) {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
             transition={{ type: "spring", bounce: 0, duration: 0.4 }}
-            className="relative w-full max-w-md bg-[#080808] border border-white/10 rounded-[32px] p-8 shadow-[0_30px_100px_rgba(0,0,0,0.8),inset_0_1px_0_rgba(255,255,255,0.1)] overflow-hidden"
+            className="relative w-full max-w-md bg-[#080808] border border-white/10 rounded-[32px] p-6 md:p-8 shadow-[0_30px_100px_rgba(0,0,0,0.8),inset_0_1px_0_rgba(255,255,255,0.1)] overflow-hidden"
           >
             {/* Subtle top spotlight for the modal */}
             <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-[50%] bg-[radial-gradient(ellipse_50%_100%_at_50%_0%,rgba(255,255,255,0.15),transparent)] pointer-events-none" />
@@ -47,13 +47,13 @@ export function JoinModal({ isOpen, onClose }: JoinModalProps) {
             {/* Close Button */}
             <button 
               onClick={onClose}
-              className="absolute top-6 right-6 text-gray-400 hover:text-white transition-colors z-20"
+              className="absolute top-4 right-4 md:top-6 md:right-6 text-gray-400 hover:text-white transition-colors z-20"
             >
               <X className="w-5 h-5" />
             </button>
 
-            <h3 className="relative z-10 text-2xl font-semibold text-white mb-2">Complete your sign up</h3>
-            <p className="relative z-10 text-sm text-gray-400 mb-8">
+            <h3 className="relative z-10 text-xl md:text-2xl font-semibold text-white mb-2 pr-4">Complete your sign up</h3>
+            <p className="relative z-10 text-xs md:text-sm text-gray-400 mb-8">
               Enter your email below to secure your spot on the waitlist.
             </p>
 
