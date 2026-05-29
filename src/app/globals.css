@@ -1,26 +1,50 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-sans);
+  --color-brand-orange: #ff7f11;
+  --color-brand-amber: #ffb800;
+  --color-glass: rgba(20, 20, 20, 0.4);
+  --color-glass-border: rgba(255, 255, 255, 0.08);
+  --animate-shimmer: shimmer 1.5s infinite;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
   }
 }
 
+:root {
+  --background: #030303;
+  --foreground: #ffffff;
+}
+
 body {
-  background: var(--background);
+  background-color: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans), sans-serif;
+  overflow-x: hidden;
+}
+
+.glass-panel {
+  background: var(--color-glass);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--color-glass-border);
+  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.text-gradient {
+  background: linear-gradient(180deg, #ffffff 0%, #a1a1aa 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.text-outline {
+  color: rgba(255, 255, 255, 0.02);
+  -webkit-text-stroke: 1.5px rgba(255, 255, 255, 0.9);
 }
