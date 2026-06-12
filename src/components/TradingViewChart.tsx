@@ -1,13 +1,24 @@
 "use client";
 
-import { useEffect, useRef, memo } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useTheme } from "next-themes";
 
 function TradingViewWidget() {
   const container = useRef<HTMLDivElement>(null);
+  const { theme } = useTheme();
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    // Prevent strict mode double injection
-    if (!container.current || container.current.querySelector("script")) return;
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!mounted || !container.current) return;
+    
+    // Clear container to reload chart on theme change
+    container.current.innerHTML = '<div class="tradingview-widget-container__widget" style="height:calc(100% - 32px);width:100%"></div>';
+    
+    const isLight = theme === 'light';
 
     const script = document.createElement("script");
     script.src = "https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js";
@@ -19,12 +30,12 @@ function TradingViewWidget() {
         "symbol": "OANDA:XAUUSD",
         "interval": "D",
         "timezone": "Etc/UTC",
-        "theme": "dark",
+        "theme": "${isLight ? 'light' : 'dark'}",
         "style": "1",
         "locale": "en",
         "enable_publishing": false,
-        "backgroundColor": "#080808",
-        "gridColor": "rgba(255, 255, 255, 0.04)",
+        "backgroundColor": "${isLight ? '#ffffff' : '#080808'}",
+        "gridColor": "${isLight ? 'rgba(0, 0, 0, 0.04)' : 'rgba(255, 255, 255, 0.04)'}",
         "hide_top_toolbar": false,
         "hide_legend": false,
         "save_image": false,
@@ -33,7 +44,9 @@ function TradingViewWidget() {
       }`;
     
     container.current.appendChild(script);
-  }, []);
+  }, [mounted, theme]);
+
+  if (!mounted) return <div className="w-full h-full bg-[#080808] dark:bg-white rounded-3xl animate-pulse"></div>;
 
   return (
     <div className="tradingview-widget-container" ref={container} style={{ height: "100%", width: "100%" }}>
@@ -42,5 +55,4 @@ function TradingViewWidget() {
   );
 }
 
-// Memoize to prevent unnecessary re-renders of the iframe
-export const TradingViewChart = memo(TradingViewWidget);
+export const TradingViewChart = TradingViewWidget;

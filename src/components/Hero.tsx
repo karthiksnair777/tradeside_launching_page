@@ -21,7 +21,7 @@ export function Hero() {
         initial={{ opacity: 0, y: 30 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 1, delay: 0.3, ease: [0.16, 1, 0.3, 1] }}
-        className="text-6xl md:text-8xl lg:text-9xl font-bold tracking-tighter text-transparent bg-clip-text bg-gradient-to-b from-white via-white to-gray-500 drop-shadow-2xl"
+        className="text-6xl md:text-8xl lg:text-9xl font-bold tracking-tighter text-transparent bg-clip-text bg-gradient-to-b from-black via-black/80 to-gray-500 dark:from-white dark:via-white dark:to-gray-500 drop-shadow-2xl"
       >
         TradeSide
       </motion.h1>
@@ -31,9 +31,9 @@ export function Hero() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 1, delay: 0.5, ease: [0.16, 1, 0.3, 1] }}
-        className="mt-6 text-2xl md:text-3xl font-light tracking-wide text-gray-300"
+        className="mt-6 text-2xl md:text-3xl font-light tracking-wide text-gray-700 dark:text-gray-300"
       >
-        <span className="text-white font-medium">Precision.</span> Patience. Execution.
+        <span className="text-black dark:text-white font-medium">Precision.</span> Patience. Execution.
       </motion.h2>
 
       {/* Description */}
@@ -41,7 +41,7 @@ export function Hero() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 1, delay: 0.7, ease: [0.16, 1, 0.3, 1] }}
-        className="mt-6 max-w-2xl text-lg md:text-xl text-gray-400 font-light"
+        className="mt-6 max-w-2xl text-lg md:text-xl text-gray-600 dark:text-gray-400 font-light"
       >
         A next-generation trading ecosystem focused on discipline, psychology, and market clarity.
       </motion.p>

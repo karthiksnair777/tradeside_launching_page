@@ -16,8 +16,8 @@ export function WaitlistCard() {
         {/* Animated Glow in the background of the card */}
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-3/4 h-32 bg-brand-orange/20 blur-[60px] rounded-full pointer-events-none group-hover:bg-brand-orange/30 transition-colors duration-700"></div>
 
-        <h3 className="text-2xl font-semibold text-white mb-2 text-center">Join the Waitlist</h3>
-        <p className="text-sm text-gray-400 text-center mb-8">
+        <h3 className="text-2xl font-semibold text-black dark:text-white mb-2 text-center">Join the Waitlist</h3>
+        <p className="text-sm text-gray-600 dark:text-gray-400 text-center mb-8">
           Be first to access the future of disciplined trading.
         </p>
 
@@ -28,7 +28,7 @@ export function WaitlistCard() {
               type="email"
               placeholder="Enter your email address"
               required
-              className="w-full bg-white/5 border border-white/10 rounded-xl py-4 pl-12 pr-4 text-white placeholder-gray-500 focus:outline-none focus:border-brand-orange/50 focus:bg-white/10 transition-all duration-300"
+              className="w-full bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 rounded-xl py-4 pl-12 pr-4 text-black dark:text-white placeholder-gray-500 focus:outline-none focus:border-brand-orange/50 focus:bg-black/10 dark:focus:bg-white/10 transition-all duration-300"
             />
           </div>
           

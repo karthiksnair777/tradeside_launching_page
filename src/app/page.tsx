@@ -8,12 +8,13 @@ import { motion } from "framer-motion";
 import { SwipeButton } from "@/components/SwipeButton";
 import { JoinModal } from "@/components/JoinModal";
 import { TradingViewChart } from "@/components/TradingViewChart";
+import { AnalyzerCTA } from "@/components/AnalyzerCTA";
 
 export default function Home() {
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   return (
-    <main className="relative min-h-screen flex flex-col items-center overflow-x-hidden bg-black selection:bg-brand-orange/30">
+    <main className="relative min-h-screen flex flex-col items-center overflow-x-hidden bg-white dark:bg-black selection:bg-brand-orange/30 transition-colors duration-300">
       <Background3D />
       
       {/* Absolute Logo on Left Side */}
@@ -37,7 +38,7 @@ export default function Home() {
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.3, ease: [0.16, 1, 0.3, 1] }}
-          className="text-5xl md:text-[67px] lg:text-[93px] font-bold tracking-[-0.07em] text-transparent bg-clip-text bg-gradient-to-r from-white via-white/80 to-[#4a4a4a] mb-12 drop-shadow-2xl px-4 text-center leading-none"
+          className="text-5xl md:text-[67px] lg:text-[93px] font-bold tracking-[-0.07em] text-transparent bg-clip-text bg-gradient-to-r from-black via-black/80 to-[#4a4a4a] dark:from-white dark:via-white/80 dark:to-[#4a4a4a] mb-12 drop-shadow-2xl px-4 text-center leading-none"
         >
           Coming soon!
         </motion.h1>
@@ -67,7 +68,7 @@ export default function Home() {
               <h2 className="relative z-20 text-3xl md:text-4xl font-semibold tracking-[-0.05em] text-transparent bg-clip-text bg-gradient-to-r from-white via-white/90 to-[#6b7280] text-center mb-4 pb-1">
                 Join our waitlist!
               </h2>
-              <p className="relative z-20 text-sm text-gray-400 text-center mb-10 max-w-sm mx-auto leading-relaxed">
+              <p className="relative z-20 text-sm text-gray-300 text-center mb-10 max-w-sm mx-auto leading-relaxed">
                 Sign up for our newsletter to receive the latest updates and insights straight to your inbox.
               </p>
               
@@ -102,15 +103,18 @@ export default function Home() {
         </motion.div>
       </div>
 
+      {/* Psychology Analyzer CTA */}
+      <AnalyzerCTA />
+
       {/* Live Market Data Section */}
       <section className="relative z-10 w-full min-h-screen flex flex-col items-center py-24 px-4">
         <div className="w-full max-w-[1200px] flex flex-col gap-8">
           
           <div className="flex flex-col gap-2">
-            <h2 className="text-3xl md:text-5xl font-bold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-white to-white/30 drop-shadow-2xl">
+            <h2 className="text-3xl md:text-5xl font-bold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-black to-black/60 dark:from-white dark:to-white/30 drop-shadow-2xl">
               Live Market Data
             </h2>
-            <p className="max-w-2xl text-sm md:text-base leading-relaxed text-transparent bg-clip-text bg-gradient-to-br from-gray-200 to-gray-500">
+            <p className="max-w-2xl text-sm md:text-base leading-relaxed text-transparent bg-clip-text bg-gradient-to-br from-gray-600 to-gray-500 dark:from-gray-200 dark:to-gray-500">
               Track XAUUSD in real-time with our advanced institutional charting integration.
             </p>
           </div>

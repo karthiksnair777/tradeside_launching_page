@@ -18,8 +18,27 @@
 }
 
 :root {
+  --background: #ffffff;
+  --foreground: #050505;
+  --bg-primary: #ffffff;
+  --bg-secondary: #f1f5f9;
+  --border-color: rgba(0, 0, 0, 0.1);
+  --color-glass: rgba(255, 255, 255, 0.6);
+  --color-glass-border: rgba(0, 0, 0, 0.1);
+  --shadow-glass: 0 30px 60px rgba(0, 0, 0, 0.05);
+  --shadow-inset: rgba(255, 255, 255, 1);
+}
+
+.dark {
   --background: #030303;
   --foreground: #ffffff;
+  --bg-primary: #050505;
+  --bg-secondary: #0a0a0a;
+  --border-color: rgba(255, 255, 255, 0.1);
+  --color-glass: rgba(20, 20, 20, 0.4);
+  --color-glass-border: rgba(255, 255, 255, 0.08);
+  --shadow-glass: 0 30px 60px rgba(0, 0, 0, 0.4);
+  --shadow-inset: rgba(255, 255, 255, 0.1);
 }
 
 body {
@@ -34,7 +53,7 @@ body {
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   border: 1px solid var(--color-glass-border);
-  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  box-shadow: var(--shadow-glass), inset 0 1px 0 var(--shadow-inset);
 }
 
 .text-gradient {
