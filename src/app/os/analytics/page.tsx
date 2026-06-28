@@ -136,7 +136,7 @@ export default function AnalyticsPage() {
             <text x="50%" y="45%" textAnchor="middle" fill="#fff" fontSize="20" fontWeight="bold" fontFamily="monospace">
               {totalWinRate}%
             </text>
-            <text x="50%" y="55%" textAnchor="middle" fill="rgba(255,255,255,0.3)" fontSize="10" textLength="60" textAnchor="middle">
+            <text x="50%" y="55%" textAnchor="middle" fill="rgba(255,255,255,0.3)" fontSize="10" textLength="60">
               WIN RATE
             </text>
           </PieChart>
