@@ -44,9 +44,9 @@ export function Navbar() {
             </button>
           )}
 
-          {/* 404 (Desktop only) */}
-          <Link href="#" className="text-sm font-medium text-black/60 dark:text-gray-300 hover:text-black dark:hover:text-white transition-colors pr-2">
-            404
+          {/* Journal OS (Desktop only) */}
+          <Link href="/os" className="text-sm font-bold text-brand-orange hover:text-brand-amber transition-colors pr-2 uppercase tracking-wide">
+            Journal OS
           </Link>
         </div>
       </motion.nav>
@@ -102,7 +102,7 @@ export function Navbar() {
               <Link href="#" onClick={() => setIsOpen(false)} className="text-3xl font-bold text-black dark:text-white tracking-tight">Testimonials</Link>
               <Link href="#" onClick={() => setIsOpen(false)} className="text-3xl font-bold text-black dark:text-white tracking-tight">FAQ</Link>
               <div className="w-12 h-px bg-black/20 dark:bg-white/20 my-2" />
-              <Link href="#" onClick={() => setIsOpen(false)} className="text-xl font-medium text-brand-orange">404</Link>
+              <Link href="/os" onClick={() => setIsOpen(false)} className="text-xl font-black text-brand-orange uppercase tracking-wide">Journal OS</Link>
             </motion.div>
           </motion.div>
         )}

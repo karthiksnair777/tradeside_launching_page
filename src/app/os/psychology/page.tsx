@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { ChartWidget } from "@/components/os/ChartWidget";
 import { 
   LineChart, 
@@ -12,16 +12,7 @@ import {
 } from "recharts";
 import { Brain, Flame, Target, Zap, ShieldAlert, CheckCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
-
-const mockDisciplineTrend = [
-  { date: "Mar 1", score: 65, fear: 80 },
-  { date: "Mar 2", score: 70, fear: 75 },
-  { date: "Mar 3", score: 68, fear: 70 },
-  { date: "Mar 4", score: 85, fear: 60 },
-  { date: "Mar 5", score: 90, fear: 50 },
-  { date: "Mar 6", score: 95, fear: 40 },
-  { date: "Mar 7", score: 88, fear: 45 },
-];
+import { insforge } from "@/lib/insforge";
 
 const moods = [
   { emoji: "😀", label: "Excellent", color: "border-emerald-500/50 text-emerald-500" },
@@ -33,6 +24,81 @@ const moods = [
 
 export default function PsychologyPage() {
   const [selectedMood, setSelectedMood] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [checkins, setCheckins] = useState<any[]>([]);
+  const [trendData, setTrendData] = useState<any[]>([]);
+  const [disciplineScore, setDisciplineScore] = useState(0);
+
+  const [checklist, setChecklist] = useState({
+    reviewed_plan: false,
+    properly_rested: false,
+    checked_news: false,
+    accepted_risk: false
+  });
+
+  useEffect(() => {
+    fetchCheckins();
+  }, []);
+
+  const fetchCheckins = async () => {
+    const { data, error } = await insforge.database
+      .from("daily_checkins")
+      .select("*")
+      .order("created_at", { ascending: true });
+      
+    if (!error && data) {
+      setCheckins(data);
+      
+      let totalDiscipline = 0;
+      const trends = data.map(c => {
+        let score = 50;
+        if (c.mood === "Excellent") score += 20;
+        if (c.mood === "Good") score += 10;
+        if (c.mood === "Anxious") score -= 10;
+        if (c.mood === "Frustrated") score -= 20;
+        
+        if (c.reviewed_plan) score += 10;
+        if (c.properly_rested) score += 10;
+        if (c.checked_news) score += 10;
+        if (c.accepted_risk) score += 10;
+
+        totalDiscipline += score;
+        
+        return {
+          date: c.date.substring(5),
+          score: Math.min(100, score),
+          fear: c.mood === "Anxious" || c.mood === "Frustrated" ? 80 : 30
+        };
+      });
+
+      setTrendData(trends);
+      if (data.length > 0) {
+        setDisciplineScore(Math.round(totalDiscipline / data.length));
+      }
+    }
+  };
+
+  const handleSaveCheckin = async () => {
+    setLoading(true);
+    const today = new Date().toISOString().split('T')[0];
+    
+    const payload = {
+      date: today,
+      mood: selectedMood,
+      ...checklist
+    };
+
+    const { error } = await insforge.database.from("daily_checkins").insert([payload]);
+    
+    if (error) {
+      alert("Failed to save checkin.");
+      console.error(error);
+    } else {
+      alert("Check-in saved!");
+      fetchCheckins();
+    }
+    setLoading(false);
+  };
 
   return (
     <div className="space-y-4 animate-in fade-in duration-500">
@@ -74,24 +140,23 @@ export default function PsychologyPage() {
 
             <p className="text-[10px] uppercase tracking-wider text-white/40 mb-2 font-semibold">Pre-Session Checklist</p>
             <div className="space-y-2.5 mb-5">
-              {[
-                "Reviewed trading plan?",
-                "Properly rested & focused?",
-                "Checked high-impact news?",
-                "Accepted risk before entry?"
-              ].map((q) => (
-                <label key={q} className="flex items-start gap-2.5 cursor-pointer group">
+              {Object.entries(checklist).map(([key, val]) => (
+                <label key={key} className="flex items-start gap-2.5 cursor-pointer group">
                   <div className="w-3.5 h-3.5 rounded-sm border border-white/[0.1] group-hover:border-brand-amber/50 flex items-center justify-center transition-colors shrink-0 mt-0.5 bg-[#111]">
-                    <input type="checkbox" className="hidden peer" />
+                    <input type="checkbox" checked={val} onChange={(e) => setChecklist({...checklist, [key]: e.target.checked})} className="hidden peer" />
                     <CheckCircle size={10} className="text-brand-amber opacity-0 peer-checked:opacity-100 transition-opacity" />
                   </div>
-                  <span className="text-[11px] text-white/60 group-hover:text-white/90 tracking-wide">{q}</span>
+                  <span className="text-[11px] text-white/60 group-hover:text-white/90 tracking-wide capitalize">{key.replace(/_/g, ' ')}?</span>
                 </label>
               ))}
             </div>
 
-            <button className="w-full py-2.5 rounded bg-brand-amber text-[#0a0a0a] font-bold text-sm uppercase tracking-wider hover:bg-brand-amber/90 transition-all">
-              Save Check-in
+            <button 
+              onClick={handleSaveCheckin}
+              disabled={loading}
+              className="w-full py-2.5 rounded bg-brand-amber text-[#0a0a0a] font-bold text-sm uppercase tracking-wider hover:bg-brand-amber/90 transition-all disabled:opacity-50"
+            >
+              {loading ? "Saving..." : "Save Check-in"}
             </button>
           </div>
 
@@ -99,35 +164,37 @@ export default function PsychologyPage() {
             <div className="bg-[#0a0a0a] p-3 rounded-lg border border-white/[0.04]">
               <div className="flex justify-between items-start mb-1">
                 <Target size={14} className="text-white/40" />
-                <span className="text-[10px] text-emerald-500 font-bold font-mono">+5%</span>
               </div>
-              <p className="text-xl font-bold font-mono text-white/90">92%</p>
-              <p className="text-[9px] text-white/40 uppercase tracking-widest font-semibold mt-0.5">Discipline</p>
+              <p className="text-xl font-bold font-mono text-white/90">{disciplineScore}%</p>
+              <p className="text-[9px] text-white/40 uppercase tracking-widest font-semibold mt-0.5">Avg Discipline</p>
             </div>
             <div className="bg-[#0a0a0a] p-3 rounded-lg border border-white/[0.04]">
               <div className="flex justify-between items-start mb-1">
                 <Zap size={14} className="text-white/40" />
-                <span className="text-[10px] text-rose-500 font-bold font-mono">+12%</span>
               </div>
-              <p className="text-xl font-bold font-mono text-white/90">14%</p>
-              <p className="text-[9px] text-white/40 uppercase tracking-widest font-semibold mt-0.5">FOMO Rate</p>
+              <p className="text-xl font-bold font-mono text-white/90">{checkins.length}</p>
+              <p className="text-[9px] text-white/40 uppercase tracking-widest font-semibold mt-0.5">Logs</p>
             </div>
           </div>
         </div>
 
         {/* Charts and Insights */}
         <div className="xl:col-span-2 space-y-4">
-          <ChartWidget title="Discipline Trend" subtitle="Discipline vs Fear (7D)" height={260}>
-            <LineChart data={mockDisciplineTrend} margin={{ top: 20, right: 10, left: -20, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="2 2" stroke="rgba(255,255,255,0.03)" vertical={false} />
-              <XAxis dataKey="date" stroke="rgba(255,255,255,0.2)" fontSize={10} tickLine={false} axisLine={false} dy={10} />
-              <YAxis stroke="rgba(255,255,255,0.2)" fontSize={10} tickLine={false} axisLine={false} domain={[0, 100]} />
-              <Tooltip 
-                contentStyle={{ backgroundColor: '#111', borderColor: 'rgba(255,255,255,0.05)', borderRadius: '6px', fontSize: '12px', fontFamily: 'monospace' }}
-              />
-              <Line type="monotone" dataKey="score" stroke="#10b981" strokeWidth={2} dot={{ r: 3, fill: "#10b981", strokeWidth: 0 }} name="Discipline Score" />
-              <Line type="monotone" dataKey="fear" stroke="#f43f5e" strokeWidth={2} dot={{ r: 3, fill: "#f43f5e", strokeWidth: 0 }} name="Fear / Anxiety" />
-            </LineChart>
+          <ChartWidget title="Discipline Trend" subtitle="Discipline vs Fear" height={260}>
+            {trendData.length === 0 ? (
+              <div className="h-full flex items-center justify-center text-white/40 text-xs">No check-in data yet.</div>
+            ) : (
+              <LineChart data={trendData} margin={{ top: 20, right: 10, left: -20, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="2 2" stroke="rgba(255,255,255,0.03)" vertical={false} />
+                <XAxis dataKey="date" stroke="rgba(255,255,255,0.2)" fontSize={10} tickLine={false} axisLine={false} dy={10} />
+                <YAxis stroke="rgba(255,255,255,0.2)" fontSize={10} tickLine={false} axisLine={false} domain={[0, 100]} />
+                <Tooltip 
+                  contentStyle={{ backgroundColor: '#111', borderColor: 'rgba(255,255,255,0.05)', borderRadius: '6px', fontSize: '12px', fontFamily: 'monospace' }}
+                />
+                <Line type="monotone" dataKey="score" stroke="#10b981" strokeWidth={2} dot={{ r: 3, fill: "#10b981", strokeWidth: 0 }} name="Discipline Score" />
+                <Line type="monotone" dataKey="fear" stroke="#f43f5e" strokeWidth={2} dot={{ r: 3, fill: "#f43f5e", strokeWidth: 0 }} name="Fear / Anxiety" />
+              </LineChart>
+            )}
           </ChartWidget>
 
           <div className="bg-[#0a0a0a] p-5 rounded-lg border border-white/[0.04]">
@@ -139,15 +206,8 @@ export default function PsychologyPage() {
               <div className="p-3 rounded-md bg-[#111] border border-white/[0.04] flex gap-3">
                 <ShieldAlert className="text-rose-500 shrink-0 mt-0.5" size={14} />
                 <div>
-                  <h4 className="font-semibold text-rose-500 text-xs mb-1 uppercase tracking-wide">Revenge Trading Warning</h4>
-                  <p className="text-[11px] text-white/50 leading-relaxed">Data shows you are 60% more likely to break rules immediately after a loss on GBP/JPY. Take a mandatory 15-minute break.</p>
-                </div>
-              </div>
-              <div className="p-3 rounded-md bg-[#111] border border-white/[0.04] flex gap-3">
-                <CheckCircle className="text-emerald-500 shrink-0 mt-0.5" size={14} />
-                <div>
-                  <h4 className="font-semibold text-emerald-500 text-xs mb-1 uppercase tracking-wide">Consistency Improving</h4>
-                  <p className="text-[11px] text-white/50 leading-relaxed">You have successfully avoided moving your stop loss early for 7 consecutive days, increasing average Risk/Reward by 12%.</p>
+                  <h4 className="font-semibold text-rose-500 text-xs mb-1 uppercase tracking-wide">AI Analysis</h4>
+                  <p className="text-[11px] text-white/50 leading-relaxed">Logging your daily psychology helps AI identify specific emotional triggers that lead to drawdowns.</p>
                 </div>
               </div>
             </div>

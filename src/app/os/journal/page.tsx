@@ -1,11 +1,121 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Plus, ListFilter, CheckCircle, Upload } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { insforge } from "@/lib/insforge";
+import { useAccount } from "@/contexts/AccountContext";
 
 export default function JournalPage() {
+  const { activeAccount } = useAccount();
   const [view, setView] = useState<"list" | "entry">("entry");
+  const [trades, setTrades] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  
+  // Form State
+  const [formData, setFormData] = useState({
+    date: new Date().toISOString().split('T')[0],
+    time: "",
+    pair: "",
+    direction: "Long",
+    entry_price: "",
+    exit_price: "",
+    stop_loss: "",
+    take_profit: "",
+    lot_size: "",
+    risk_amount: "",
+    profit: "",
+    result: "",
+    setup: "",
+    confidence: "8",
+    stress: "3",
+    went_well: "",
+    mistakes: ""
+  });
+
+  // Psychology checklist state
+  const [checklist, setChecklist] = useState({
+    followedPlan: false,
+    movedStopLoss: false,
+    closedEarly: false,
+    addedPosition: false,
+    feltFomo: false,
+    revengeTraded: false
+  });
+
+  useEffect(() => {
+    fetchTrades();
+  }, [activeAccount]);
+
+  const fetchTrades = async () => {
+    if (!activeAccount) {
+      setTrades([]);
+      return;
+    }
+    try {
+      const { data, error } = await insforge.database
+        .from("trades")
+        .select("*")
+        .eq("account_id", activeAccount.id)
+        .order("created_at", { ascending: false });
+      
+      if (error) throw error;
+      setTrades(data || []);
+    } catch (error) {
+      console.error("Error fetching trades:", error);
+    }
+  };
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
+
+  const handleSaveTrade = async () => {
+    if (!activeAccount) {
+      alert("Please select or create an account first.");
+      return;
+    }
+    setLoading(true);
+    try {
+      const payload = {
+        account_id: activeAccount.id,
+        date: formData.date,
+        time: formData.time,
+        pair: formData.pair.toUpperCase(),
+        direction: formData.direction,
+        entry_price: formData.entry_price ? parseFloat(formData.entry_price) : null,
+        exit_price: formData.exit_price ? parseFloat(formData.exit_price) : null,
+        stop_loss: formData.stop_loss ? parseFloat(formData.stop_loss) : null,
+        take_profit: formData.take_profit ? parseFloat(formData.take_profit) : null,
+        lot_size: formData.lot_size ? parseFloat(formData.lot_size) : null,
+        risk_amount: formData.risk_amount ? parseFloat(formData.risk_amount) : null,
+        profit: formData.profit ? parseFloat(formData.profit) : null,
+        result: formData.result,
+        setup: formData.setup,
+        confidence: parseInt(formData.confidence),
+        stress: parseInt(formData.stress),
+        went_well: formData.went_well,
+        mistakes: formData.mistakes
+      };
+
+      const { data, error } = await insforge.database.from("trades").insert([payload]).select();
+
+      if (error) {
+        console.error("Insert Error:", error);
+        alert("Failed to save trade. If RLS is enabled, you may need to disable it or implement authentication first.");
+      } else {
+        alert("Trade saved successfully!");
+        setFormData({
+          ...formData, pair: "", entry_price: "", exit_price: "", stop_loss: "", take_profit: "", lot_size: "", risk_amount: "", profit: "", result: "", setup: "", went_well: "", mistakes: ""
+        });
+        fetchTrades();
+        setView("list");
+      }
+    } catch (error) {
+      console.error("Error saving trade:", error);
+    }
+    setLoading(false);
+  };
 
   return (
     <div className="space-y-4 animate-in fade-in duration-500">
@@ -46,21 +156,21 @@ export default function JournalPage() {
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="space-y-1.5">
                   <label className="text-[10px] text-white/40 uppercase tracking-wider font-semibold">Date</label>
-                  <input type="date" className="w-full bg-[#111] border border-white/[0.06] rounded px-2.5 py-1.5 text-xs text-white/90 focus:outline-none focus:border-brand-amber/50 font-mono" />
+                  <input type="date" name="date" value={formData.date} onChange={handleChange} className="w-full bg-[#111] border border-white/[0.06] rounded px-2.5 py-1.5 text-xs text-white/90 focus:outline-none focus:border-brand-amber/50 font-mono" />
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-[10px] text-white/40 uppercase tracking-wider font-semibold">Time</label>
-                  <input type="time" className="w-full bg-[#111] border border-white/[0.06] rounded px-2.5 py-1.5 text-xs text-white/90 focus:outline-none focus:border-brand-amber/50 font-mono" />
+                  <input type="time" name="time" value={formData.time} onChange={handleChange} className="w-full bg-[#111] border border-white/[0.06] rounded px-2.5 py-1.5 text-xs text-white/90 focus:outline-none focus:border-brand-amber/50 font-mono" />
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-[10px] text-white/40 uppercase tracking-wider font-semibold">Pair</label>
-                  <input type="text" placeholder="EUR/USD" className="w-full bg-[#111] border border-white/[0.06] rounded px-2.5 py-1.5 text-xs text-white/90 focus:outline-none focus:border-brand-amber/50 font-mono placeholder:text-white/20" />
+                  <input type="text" name="pair" value={formData.pair} onChange={handleChange} placeholder="EUR/USD" className="w-full bg-[#111] border border-white/[0.06] rounded px-2.5 py-1.5 text-xs text-white/90 focus:outline-none focus:border-brand-amber/50 font-mono placeholder:text-white/20 uppercase" />
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-[10px] text-white/40 uppercase tracking-wider font-semibold">Direction</label>
-                  <select className="w-full bg-[#111] border border-white/[0.06] rounded px-2.5 py-1.5 text-xs text-white/90 focus:outline-none focus:border-brand-amber/50 appearance-none">
-                    <option>Long</option>
-                    <option>Short</option>
+                  <select name="direction" value={formData.direction} onChange={handleChange} className="w-full bg-[#111] border border-white/[0.06] rounded px-2.5 py-1.5 text-xs text-white/90 focus:outline-none focus:border-brand-amber/50 appearance-none">
+                    <option value="Long">Long</option>
+                    <option value="Short">Short</option>
                   </select>
                 </div>
               </div>
@@ -72,27 +182,27 @@ export default function JournalPage() {
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                 <div className="space-y-1.5">
                   <label className="text-[10px] text-white/40 uppercase tracking-wider font-semibold">Entry Price</label>
-                  <input type="number" step="0.00001" className="w-full bg-[#111] border border-white/[0.06] rounded px-2.5 py-1.5 text-xs text-white/90 focus:outline-none focus:border-brand-amber/50 font-mono" />
+                  <input type="number" name="entry_price" value={formData.entry_price} onChange={handleChange} step="0.00001" className="w-full bg-[#111] border border-white/[0.06] rounded px-2.5 py-1.5 text-xs text-white/90 focus:outline-none focus:border-brand-amber/50 font-mono" />
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-[10px] text-white/40 uppercase tracking-wider font-semibold">Stop Loss</label>
-                  <input type="number" step="0.00001" className="w-full bg-[#111] border border-white/[0.06] rounded px-2.5 py-1.5 text-xs text-white/90 focus:outline-none focus:border-brand-amber/50 font-mono" />
+                  <input type="number" name="stop_loss" value={formData.stop_loss} onChange={handleChange} step="0.00001" className="w-full bg-[#111] border border-white/[0.06] rounded px-2.5 py-1.5 text-xs text-white/90 focus:outline-none focus:border-brand-amber/50 font-mono" />
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-[10px] text-white/40 uppercase tracking-wider font-semibold">Take Profit</label>
-                  <input type="number" step="0.00001" className="w-full bg-[#111] border border-white/[0.06] rounded px-2.5 py-1.5 text-xs text-white/90 focus:outline-none focus:border-brand-amber/50 font-mono" />
+                  <input type="number" name="take_profit" value={formData.take_profit} onChange={handleChange} step="0.00001" className="w-full bg-[#111] border border-white/[0.06] rounded px-2.5 py-1.5 text-xs text-white/90 focus:outline-none focus:border-brand-amber/50 font-mono" />
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-[10px] text-white/40 uppercase tracking-wider font-semibold">Exit Price</label>
-                  <input type="number" step="0.00001" className="w-full bg-[#111] border border-white/[0.06] rounded px-2.5 py-1.5 text-xs text-white/90 focus:outline-none focus:border-brand-amber/50 font-mono" />
+                  <input type="number" name="exit_price" value={formData.exit_price} onChange={handleChange} step="0.00001" className="w-full bg-[#111] border border-white/[0.06] rounded px-2.5 py-1.5 text-xs text-white/90 focus:outline-none focus:border-brand-amber/50 font-mono" />
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-[10px] text-white/40 uppercase tracking-wider font-semibold">Lot Size</label>
-                  <input type="number" step="0.01" className="w-full bg-[#111] border border-white/[0.06] rounded px-2.5 py-1.5 text-xs text-white/90 focus:outline-none focus:border-brand-amber/50 font-mono" />
+                  <input type="number" name="lot_size" value={formData.lot_size} onChange={handleChange} step="0.01" className="w-full bg-[#111] border border-white/[0.06] rounded px-2.5 py-1.5 text-xs text-white/90 focus:outline-none focus:border-brand-amber/50 font-mono" />
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-[10px] text-white/40 uppercase tracking-wider font-semibold">Risk Amount ($)</label>
-                  <input type="number" className="w-full bg-[#111] border border-white/[0.06] rounded px-2.5 py-1.5 text-xs text-white/90 focus:outline-none focus:border-brand-amber/50 font-mono" />
+                  <input type="number" name="risk_amount" value={formData.risk_amount} onChange={handleChange} className="w-full bg-[#111] border border-white/[0.06] rounded px-2.5 py-1.5 text-xs text-white/90 focus:outline-none focus:border-brand-amber/50 font-mono" />
                 </div>
               </div>
             </div>
@@ -104,20 +214,13 @@ export default function JournalPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 <div className="space-y-3">
                   <h4 className="text-[10px] font-bold text-white/30 uppercase tracking-wider">During Trade</h4>
-                  {[
-                    "Followed Trading Plan",
-                    "Moved Stop Loss?",
-                    "Closed Early?",
-                    "Added Position?",
-                    "Felt FOMO?",
-                    "Revenge Traded?"
-                  ].map((q) => (
-                    <label key={q} className="flex items-center gap-2.5 cursor-pointer group">
+                  {Object.entries(checklist).map(([key, val]) => (
+                    <label key={key} className="flex items-center gap-2.5 cursor-pointer group">
                       <div className="w-3.5 h-3.5 rounded-sm border border-white/[0.1] group-hover:border-brand-amber/50 flex items-center justify-center transition-colors bg-[#111]">
-                        <input type="checkbox" className="hidden peer" />
+                        <input type="checkbox" checked={val} onChange={(e) => setChecklist({...checklist, [key]: e.target.checked})} className="hidden peer" />
                         <CheckCircle size={10} className="text-brand-amber opacity-0 peer-checked:opacity-100 transition-opacity" />
                       </div>
-                      <span className="text-[11px] text-white/60 group-hover:text-white/90 tracking-wide">{q}</span>
+                      <span className="text-[11px] text-white/60 group-hover:text-white/90 tracking-wide capitalize">{key.replace(/([A-Z])/g, ' $1').trim()}</span>
                     </label>
                   ))}
                 </div>
@@ -127,16 +230,16 @@ export default function JournalPage() {
                   <div className="space-y-1.5">
                     <div className="flex justify-between">
                       <label className="text-[10px] text-white/40 uppercase tracking-wider font-semibold">Confidence</label>
-                      <span className="text-[10px] font-mono text-white/60">8/10</span>
+                      <span className="text-[10px] font-mono text-white/60">{formData.confidence}/10</span>
                     </div>
-                    <input type="range" min="1" max="10" defaultValue={8} className="w-full accent-brand-amber h-1 bg-[#111] rounded appearance-none" />
+                    <input type="range" name="confidence" value={formData.confidence} onChange={handleChange} min="1" max="10" className="w-full accent-brand-amber h-1 bg-[#111] rounded appearance-none" />
                   </div>
                   <div className="space-y-1.5">
                     <div className="flex justify-between">
                       <label className="text-[10px] text-white/40 uppercase tracking-wider font-semibold">Stress</label>
-                      <span className="text-[10px] font-mono text-white/60">3/10</span>
+                      <span className="text-[10px] font-mono text-white/60">{formData.stress}/10</span>
                     </div>
-                    <input type="range" min="1" max="10" defaultValue={3} className="w-full accent-brand-orange h-1 bg-[#111] rounded appearance-none" />
+                    <input type="range" name="stress" value={formData.stress} onChange={handleChange} min="1" max="10" className="w-full accent-brand-orange h-1 bg-[#111] rounded appearance-none" />
                   </div>
                 </div>
               </div>
@@ -144,11 +247,11 @@ export default function JournalPage() {
               <div className="space-y-4 pt-4 border-t border-white/[0.04]">
                 <div className="space-y-1.5">
                   <label className="text-[10px] text-white/40 uppercase tracking-wider font-semibold">What went well?</label>
-                  <textarea className="w-full bg-[#111] border border-white/[0.06] rounded px-2.5 py-1.5 text-xs text-white/90 focus:outline-none focus:border-brand-amber/50 min-h-[60px] resize-y" />
+                  <textarea name="went_well" value={formData.went_well} onChange={handleChange} className="w-full bg-[#111] border border-white/[0.06] rounded px-2.5 py-1.5 text-xs text-white/90 focus:outline-none focus:border-brand-amber/50 min-h-[60px] resize-y" />
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-[10px] text-white/40 uppercase tracking-wider font-semibold">Mistakes & Lessons</label>
-                  <textarea className="w-full bg-[#111] border border-white/[0.06] rounded px-2.5 py-1.5 text-xs text-white/90 focus:outline-none focus:border-brand-amber/50 min-h-[60px] resize-y" />
+                  <textarea name="mistakes" value={formData.mistakes} onChange={handleChange} className="w-full bg-[#111] border border-white/[0.06] rounded px-2.5 py-1.5 text-xs text-white/90 focus:outline-none focus:border-brand-amber/50 min-h-[60px] resize-y" />
                 </div>
               </div>
             </div>
@@ -160,28 +263,33 @@ export default function JournalPage() {
             <div className="bg-[#0a0a0a] p-5 rounded-lg border border-white/[0.04]">
               <h3 className="text-xs font-semibold uppercase tracking-widest text-white/50 mb-4 pb-2 border-b border-white/[0.04]">Trade Result</h3>
               <div className="grid grid-cols-2 gap-2 mb-4">
-                <button className="py-1.5 rounded bg-white/[0.02] border border-emerald-500/20 text-emerald-500 text-[11px] font-bold uppercase tracking-wider hover:bg-emerald-500/10 transition-colors">Win</button>
-                <button className="py-1.5 rounded bg-white/[0.02] border border-rose-500/20 text-rose-500 text-[11px] font-bold uppercase tracking-wider hover:bg-rose-500/10 transition-colors">Loss</button>
-                <button className="py-1.5 rounded bg-white/[0.02] border border-slate-500/20 text-slate-400 text-[11px] font-bold uppercase tracking-wider hover:bg-slate-500/10 transition-colors">Break Even</button>
-                <button className="py-1.5 rounded bg-white/[0.02] border border-blue-500/20 text-blue-400 text-[11px] font-bold uppercase tracking-wider hover:bg-blue-500/10 transition-colors">Partial</button>
+                {["Win", "Loss", "Break Even", "Partial"].map((res) => (
+                  <button 
+                    key={res}
+                    onClick={() => setFormData({ ...formData, result: res })}
+                    className={cn(
+                      "py-1.5 rounded border text-[11px] font-bold uppercase tracking-wider transition-colors",
+                      formData.result === res 
+                        ? (res === "Win" ? "bg-emerald-500/20 border-emerald-500 text-emerald-500" : res === "Loss" ? "bg-rose-500/20 border-rose-500 text-rose-500" : "bg-white/10 border-white/30 text-white") 
+                        : "bg-white/[0.02] border-white/5 text-white/40 hover:bg-white/5"
+                    )}
+                  >
+                    {res}
+                  </button>
+                ))}
               </div>
               <div className="space-y-1.5">
                 <label className="text-[10px] text-white/40 uppercase tracking-wider font-semibold">Net P/L ($)</label>
-                <input type="number" className="w-full bg-[#111] border border-white/[0.06] rounded px-3 py-2 font-mono font-bold text-lg focus:outline-none focus:border-brand-amber/50" placeholder="$0.00" />
-              </div>
-            </div>
-
-            <div className="bg-[#0a0a0a] p-5 rounded-lg border border-white/[0.04]">
-              <h3 className="text-xs font-semibold uppercase tracking-widest text-white/50 mb-4 pb-2 border-b border-white/[0.04]">Media</h3>
-              <div className="border border-dashed border-white/[0.1] rounded bg-white/[0.01] p-6 flex flex-col items-center justify-center text-center hover:bg-white/[0.02] hover:border-brand-amber/30 transition-all cursor-pointer group">
-                <Upload size={16} className="text-white/30 group-hover:text-brand-amber transition-colors mb-2" />
-                <p className="font-semibold text-xs text-white/70">Upload Chart</p>
-                <p className="text-[10px] text-white/40 mt-1 uppercase tracking-wider">Drag & drop</p>
+                <input type="number" name="profit" value={formData.profit} onChange={handleChange} className="w-full bg-[#111] border border-white/[0.06] rounded px-3 py-2 font-mono font-bold text-lg focus:outline-none focus:border-brand-amber/50" placeholder="$0.00" />
               </div>
             </div>
             
-            <button className="w-full py-2.5 rounded bg-brand-amber text-[#0a0a0a] font-bold text-sm uppercase tracking-wider hover:bg-brand-amber/90 transition-all">
-              Save Trade
+            <button 
+              onClick={handleSaveTrade} 
+              disabled={loading}
+              className="w-full py-2.5 rounded bg-brand-amber text-[#0a0a0a] font-bold text-sm uppercase tracking-wider hover:bg-brand-amber/90 transition-all disabled:opacity-50"
+            >
+              {loading ? "Saving..." : "Save Trade"}
             </button>
           </div>
         </div>
@@ -191,25 +299,57 @@ export default function JournalPage() {
         <div className="bg-[#0a0a0a] rounded-lg border border-white/[0.04]">
           <div className="px-4 py-3 flex items-center justify-between border-b border-white/[0.04]">
             <h3 className="text-sm font-semibold text-white/90 tracking-wide">Trade History</h3>
-            <div className="flex gap-2">
-              <select className="bg-[#111] border border-white/[0.06] rounded px-2.5 py-1 text-xs focus:outline-none focus:border-brand-amber/50 appearance-none text-white/70">
-                <option>All Pairs</option>
-                <option>EUR/USD</option>
-                <option>XAU/USD</option>
-              </select>
-              <select className="bg-[#111] border border-white/[0.06] rounded px-2.5 py-1 text-xs focus:outline-none focus:border-brand-amber/50 appearance-none text-white/70">
-                <option>All Results</option>
-                <option>Wins</option>
-                <option>Losses</option>
-              </select>
-            </div>
           </div>
-          <div className="p-8 text-center text-white/40 text-xs">
-            <p>Your logged trades will appear here in a ledger format.</p>
+          <div className="overflow-x-auto">
+            {trades.length === 0 ? (
+              <div className="p-8 text-center text-white/40 text-xs">
+                <p>No trades logged yet. Start by logging an entry!</p>
+              </div>
+            ) : (
+              <table className="w-full text-xs text-left whitespace-nowrap">
+                <thead className="text-[10px] text-white/40 uppercase tracking-widest border-b border-white/[0.04]">
+                  <tr>
+                    <th className="px-4 py-2.5 font-medium">Date/Pair</th>
+                    <th className="px-4 py-2.5 font-medium">Type</th>
+                    <th className="px-4 py-2.5 font-medium text-right">Risk</th>
+                    <th className="px-4 py-2.5 font-medium text-right">P/L</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/[0.02]">
+                  {trades.map((trade) => (
+                    <tr key={trade.id} className="hover:bg-white/[0.02] transition-colors group">
+                      <td className="px-4 py-2.5">
+                        <div className="font-semibold text-white/90 uppercase">{trade.pair}</div>
+                        <div className="text-[10px] text-white/40 font-mono">{trade.date} {trade.time}</div>
+                      </td>
+                      <td className="px-4 py-2.5">
+                        <span className={cn(
+                          "px-1.5 py-0.5 rounded-sm text-[10px] font-bold uppercase tracking-widest",
+                          trade.direction === "Long" ? "bg-emerald-500/10 text-emerald-500" : "bg-rose-500/10 text-rose-500"
+                        )}>
+                          {trade.direction}
+                        </span>
+                      </td>
+                      <td className="px-4 py-2.5 text-right font-mono">
+                        <div className="text-white/80">{trade.risk_amount ? `$${trade.risk_amount}` : '-'}</div>
+                      </td>
+                      <td className="px-4 py-2.5 text-right font-mono">
+                        <div className={cn(
+                          "font-bold",
+                          trade.profit > 0 ? "text-emerald-500" :
+                          trade.profit < 0 ? "text-rose-500" : "text-white/50"
+                        )}>
+                          {trade.profit > 0 ? "+" : ""}{trade.profit ? `$${Math.abs(trade.profit)}` : 'BE'}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
         </div>
       )}
-
     </div>
   );
 }

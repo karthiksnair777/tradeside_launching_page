@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { 
   DollarSign, 
   TrendingUp, 
@@ -8,8 +8,6 @@ import {
   Crosshair, 
   Activity, 
   Clock, 
-  ArrowUpRight, 
-  ArrowDownRight,
   Target,
   Flame,
   ShieldAlert
@@ -17,7 +15,6 @@ import {
 import { StatCard } from "@/components/os/StatCard";
 import { ChartWidget } from "@/components/os/ChartWidget";
 import { AICoachPanel } from "@/components/os/AICoachPanel";
-import { kpiStats, mockEquityCurve, mockTrades } from "@/lib/mock-data";
 import { 
   AreaChart, 
   Area, 
@@ -27,8 +24,86 @@ import {
   Tooltip, 
 } from "recharts";
 import { cn } from "@/lib/utils";
+import { insforge } from "@/lib/insforge";
+import { useAccount } from "@/contexts/AccountContext";
 
 export default function DashboardPage() {
+  const { activeAccount } = useAccount();
+  const [trades, setTrades] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Computed KPIs
+  const [kpis, setKpis] = useState({
+    balance: "$0.00",
+    totalPnL: "$0.00",
+    winRate: "0%",
+    profitFactor: "0.00",
+    drawdown: "0.0%",
+    curve: [] as any[]
+  });
+
+  useEffect(() => {
+    async function loadData() {
+      if (!activeAccount) {
+        setTrades([]);
+        setKpis({ balance: "$0.00", totalPnL: "$0.00", winRate: "0%", profitFactor: "0.00", drawdown: "0.0%", curve: [] });
+        setLoading(false);
+        return;
+      }
+
+      setLoading(true);
+      const { data, error } = await insforge.database
+        .from("trades")
+        .select("*")
+        .eq("account_id", activeAccount.id)
+        .order("created_at", { ascending: true });
+        
+      if (!error && data) {
+        setTrades(data.reverse()); // Store latest first for the table
+        
+        // Calculate KPIs
+        let balance = Number(activeAccount.initial_balance);
+        let wins = 0;
+        let grossProfit = 0;
+        let grossLoss = 0;
+        let peak = balance;
+        let maxDrawdown = 0;
+        
+        const curve = [{ date: "Start", balance }];
+
+        // Re-reverse for chronological calculation
+        [...data].forEach(t => {
+          const pnl = Number(t.profit || 0);
+          balance += pnl;
+          
+          if (pnl > 0) {
+            wins++;
+            grossProfit += pnl;
+          } else {
+            grossLoss += Math.abs(pnl);
+          }
+          
+          if (balance > peak) peak = balance;
+          const currentDd = ((peak - balance) / peak) * 100;
+          if (currentDd > maxDrawdown) maxDrawdown = currentDd;
+
+          curve.push({ date: t.date ? t.date.substring(5) : "", balance });
+        });
+
+        setKpis({
+          balance: `$${balance.toLocaleString()}`,
+          totalPnL: `${balance - activeAccount.initial_balance >= 0 ? "+" : "-"} $${Math.abs(balance - activeAccount.initial_balance).toLocaleString()}`,
+          winRate: data.length ? `${Math.round((wins / data.length) * 100)}%` : "0%",
+          profitFactor: grossLoss > 0 ? (grossProfit / grossLoss).toFixed(2) : (grossProfit > 0 ? "MAX" : "0.00"),
+          drawdown: `${maxDrawdown.toFixed(1)}%`,
+          curve: curve.length > 1 ? curve : [{ date: "No data", balance: activeAccount.initial_balance }]
+        });
+      }
+      setLoading(false);
+    }
+    loadData();
+  }, [activeAccount]);
+
   return (
     <div className="space-y-4 animate-in fade-in duration-500">
       <div className="flex items-center justify-between mb-2">
@@ -37,9 +112,6 @@ export default function DashboardPage() {
           <p className="text-xs text-white/40 mt-0.5 uppercase tracking-widest">Performance Overview</p>
         </div>
         <div className="flex gap-2">
-          <button className="px-3 py-1.5 bg-white/5 text-white/70 text-xs font-medium rounded hover:bg-white/10 transition-colors border border-white/[0.04]">
-            Export Data
-          </button>
           <button className="px-3 py-1.5 bg-brand-amber text-[#0a0a0a] text-xs font-bold rounded hover:bg-brand-amber/90 transition-colors">
             + New Trade
           </button>
@@ -48,40 +120,11 @@ export default function DashboardPage() {
 
       {/* KPI Cards Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-3">
-        <StatCard 
-          title="Account Balance" 
-          value={kpiStats.balance} 
-          icon={DollarSign} 
-          trend="up" 
-          trendValue="4.2%" 
-          className="xl:col-span-1"
-        />
-        <StatCard 
-          title="Total P/L" 
-          value={kpiStats.totalPnL} 
-          icon={TrendingUp} 
-          className="xl:col-span-1"
-        />
-        <StatCard 
-          title="Win Rate" 
-          value={kpiStats.winRate} 
-          icon={Crosshair} 
-          trend="up" 
-          trendValue="2.1%" 
-          className="xl:col-span-1"
-        />
-        <StatCard 
-          title="Profit Factor" 
-          value={kpiStats.profitFactor} 
-          icon={Activity} 
-          className="xl:col-span-1"
-        />
-        <StatCard 
-          title="Drawdown" 
-          value={kpiStats.drawdown} 
-          icon={TrendingDown} 
-          className="xl:col-span-1"
-        />
+        <StatCard title="Account Balance" value={kpis.balance} icon={DollarSign} className="xl:col-span-1" />
+        <StatCard title="Total P/L" value={kpis.totalPnL} icon={TrendingUp} className="xl:col-span-1" />
+        <StatCard title="Win Rate" value={kpis.winRate} icon={Crosshair} className="xl:col-span-1" />
+        <StatCard title="Profit Factor" value={kpis.profitFactor} icon={Activity} className="xl:col-span-1" />
+        <StatCard title="Max Drawdown" value={kpis.drawdown} icon={TrendingDown} className="xl:col-span-1" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 xl:grid-cols-4 gap-4">
@@ -90,7 +133,7 @@ export default function DashboardPage() {
           
           {/* Equity Curve */}
           <ChartWidget title="Equity Curve" height={300}>
-            <AreaChart data={mockEquityCurve} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
+            <AreaChart data={kpis.curve} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
               <defs>
                 <linearGradient id="colorBalance" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="#ffb800" stopOpacity={0.15}/>
@@ -99,28 +142,19 @@ export default function DashboardPage() {
               </defs>
               <CartesianGrid strokeDasharray="2 2" stroke="rgba(255,255,255,0.03)" vertical={false} />
               <XAxis dataKey="date" stroke="rgba(255,255,255,0.2)" fontSize={10} tickLine={false} axisLine={false} dy={10} />
-              <YAxis stroke="rgba(255,255,255,0.2)" fontSize={10} tickLine={false} axisLine={false} tickFormatter={(val) => `$${val/1000}k`} />
+              <YAxis stroke="rgba(255,255,255,0.2)" fontSize={10} tickLine={false} axisLine={false} tickFormatter={(val) => `$${val/1000}k`} domain={['auto', 'auto']} />
               <Tooltip 
                 contentStyle={{ backgroundColor: '#0a0a0a', borderColor: 'rgba(255,255,255,0.05)', borderRadius: '6px', fontSize: '12px', fontFamily: 'monospace' }}
                 itemStyle={{ color: '#ffb800' }}
               />
-              <Area 
-                type="monotone" 
-                dataKey="balance" 
-                stroke="#ffb800" 
-                strokeWidth={1.5}
-                fillOpacity={1} 
-                fill="url(#colorBalance)" 
-                animationDuration={1000}
-              />
+              <Area type="stepAfter" dataKey="balance" stroke="#ffb800" strokeWidth={1.5} fillOpacity={1} fill="url(#colorBalance)" animationDuration={1000} />
             </AreaChart>
           </ChartWidget>
 
           {/* Recent Trades Ledger */}
           <div className="bg-[#0a0a0a] rounded-lg border border-white/[0.04]">
             <div className="px-4 py-3 border-b border-white/[0.04] flex justify-between items-center">
-              <h3 className="text-sm font-semibold tracking-wide text-white/90">Trade Ledger</h3>
-              <button className="text-xs text-white/40 hover:text-white/90 transition-colors uppercase tracking-widest font-medium">View All</button>
+              <h3 className="text-sm font-semibold tracking-wide text-white/90">Recent Trades</h3>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-xs text-left whitespace-nowrap">
@@ -128,17 +162,20 @@ export default function DashboardPage() {
                   <tr>
                     <th className="px-4 py-2.5 font-medium">Date/Pair</th>
                     <th className="px-4 py-2.5 font-medium">Type</th>
-                    <th className="px-4 py-2.5 font-medium">Setup</th>
                     <th className="px-4 py-2.5 font-medium text-right">Risk</th>
                     <th className="px-4 py-2.5 font-medium text-right">P/L</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/[0.02]">
-                  {mockTrades.slice(0, 5).map((trade) => (
+                  {trades.length === 0 ? (
+                    <tr>
+                      <td colSpan={4} className="px-4 py-8 text-center text-white/40">No trades recorded yet.</td>
+                    </tr>
+                  ) : trades.slice(0, 5).map((trade) => (
                     <tr key={trade.id} className="hover:bg-white/[0.02] transition-colors group">
                       <td className="px-4 py-2.5">
-                        <div className="font-semibold text-white/90">{trade.pair}</div>
-                        <div className="text-[10px] text-white/40 font-mono">{trade.date} {trade.time}</div>
+                        <div className="font-semibold text-white/90 uppercase">{trade.pair}</div>
+                        <div className="text-[10px] text-white/40 font-mono">{trade.date}</div>
                       </td>
                       <td className="px-4 py-2.5">
                         <span className={cn(
@@ -148,18 +185,16 @@ export default function DashboardPage() {
                           {trade.direction}
                         </span>
                       </td>
-                      <td className="px-4 py-2.5 text-white/60">{trade.setup}</td>
                       <td className="px-4 py-2.5 text-right font-mono">
-                        <div className="text-white/80">${trade.risk}</div>
-                        <div className="text-[10px] text-white/40">1:{trade.rr}</div>
+                        <div className="text-white/80">{trade.risk_amount ? `$${trade.risk_amount}` : '-'}</div>
                       </td>
                       <td className="px-4 py-2.5 text-right font-mono">
                         <div className={cn(
                           "font-bold",
-                          trade.result === "Win" ? "text-emerald-500" :
-                          trade.result === "Loss" ? "text-rose-500" : "text-white/50"
+                          trade.profit > 0 ? "text-emerald-500" :
+                          trade.profit < 0 ? "text-rose-500" : "text-white/50"
                         )}>
-                          {trade.profit > 0 ? "+" : ""}{trade.profit === 0 ? "BE" : `$${Math.abs(trade.profit)}`}
+                          {trade.profit > 0 ? "+" : ""}{trade.profit ? `$${Math.abs(trade.profit)}` : 'BE'}
                         </div>
                       </td>
                     </tr>
@@ -207,10 +242,10 @@ export default function DashboardPage() {
             <div className="mt-5">
               <div className="flex justify-between text-[10px] mb-1.5 uppercase tracking-widest font-semibold">
                 <span className="text-white/40 flex items-center gap-1"><ShieldAlert size={10}/> Risk Limit</span>
-                <span className="text-white/90 font-mono">1.5% / 2.0%</span>
+                <span className="text-white/90 font-mono">0.0% / 2.0%</span>
               </div>
               <div className="w-full bg-white/[0.04] rounded-sm h-1.5">
-                <div className="bg-brand-amber h-1.5 rounded-sm" style={{ width: '75%' }}></div>
+                <div className="bg-brand-amber h-1.5 rounded-sm" style={{ width: '0%' }}></div>
               </div>
             </div>
           </div>
