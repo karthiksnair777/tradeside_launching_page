@@ -5,6 +5,7 @@ import { Plus, ListFilter, CheckCircle, Upload, Image as ImageIcon, X } from "lu
 import { cn } from "@/lib/utils";
 import { insforge } from "@/lib/insforge";
 import { useAccount } from "@/contexts/AccountContext";
+import { generateTradeAdvice } from "@/lib/tradeAnalyzer";
 
 export default function JournalPage() {
   const { activeAccount } = useAccount();
@@ -546,10 +547,10 @@ export default function JournalPage() {
                     <p className="text-xs text-white/70 leading-relaxed whitespace-pre-wrap">{selectedTrade.mistakes}</p>
                   </div>
                 )}
-                {selectedTrade.improvement_notes && (
+                {(selectedTrade.improvement_notes || generateTradeAdvice(selectedTrade)) && (
                   <div className="p-4 bg-brand-amber/5 rounded-lg border border-brand-amber/10">
-                    <h4 className="text-[10px] font-bold text-brand-amber uppercase tracking-wider mb-2">What to Improve</h4>
-                    <p className="text-xs text-white/70 leading-relaxed whitespace-pre-wrap">{selectedTrade.improvement_notes}</p>
+                    <h4 className="text-[10px] font-bold text-brand-amber uppercase tracking-wider mb-2">What to Improve (Analysis)</h4>
+                    <p className="text-xs text-white/70 leading-relaxed whitespace-pre-wrap">{selectedTrade.improvement_notes || generateTradeAdvice(selectedTrade)}</p>
                   </div>
                 )}
                 {!selectedTrade.went_well && !selectedTrade.mistakes && !selectedTrade.improvement_notes && (

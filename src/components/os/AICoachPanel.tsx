@@ -1,5 +1,6 @@
 import React, { useMemo } from "react";
 import { Brain, Sparkles, TrendingUp, AlertTriangle, Lightbulb } from "lucide-react";
+import { generateOverallAdvice } from "@/lib/tradeAnalyzer";
 
 export function AICoachPanel({ trades = [] }: { trades?: any[] }) {
   
@@ -41,7 +42,10 @@ export function AICoachPanel({ trades = [] }: { trades?: any[] }) {
       }
     });
 
-    return { bestPair, bestPairWinRate, worstPair, recentImprovements };
+    const overallAdvice = generateOverallAdvice(trades);
+    const allImprovements = [...overallAdvice, ...recentImprovements];
+
+    return { bestPair, bestPairWinRate, worstPair, recentImprovements: allImprovements };
   }, [trades]);
 
   return (
