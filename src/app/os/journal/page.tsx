@@ -1,14 +1,14 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Plus, ListFilter, CheckCircle, Upload } from "lucide-react";
+import { Plus, ListFilter, CheckCircle, Upload, Image as ImageIcon, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { insforge } from "@/lib/insforge";
 import { useAccount } from "@/contexts/AccountContext";
 
 export default function JournalPage() {
   const { activeAccount } = useAccount();
-  const [view, setView] = useState<"list" | "entry">("entry");
+  const [view, setView] = useState<"list" | "entry" | "gallery">("entry");
   const [trades, setTrades] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   
@@ -30,7 +30,8 @@ export default function JournalPage() {
     confidence: "8",
     stress: "3",
     went_well: "",
-    mistakes: ""
+    mistakes: "",
+    image_url: ""
   });
 
   // Psychology checklist state
@@ -70,6 +71,21 @@ export default function JournalPage() {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) { // 5MB limit
+        alert("Image size should be less than 5MB");
+        return;
+      }
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setFormData({ ...formData, image_url: reader.result as string });
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const handleSaveTrade = async () => {
     if (!activeAccount) {
       alert("Please select or create an account first.");
@@ -95,7 +111,8 @@ export default function JournalPage() {
         confidence: parseInt(formData.confidence),
         stress: parseInt(formData.stress),
         went_well: formData.went_well,
-        mistakes: formData.mistakes
+        mistakes: formData.mistakes,
+        image_url: formData.image_url
       };
 
       const { data, error } = await insforge.database.from("trades").insert([payload]).select();
@@ -106,7 +123,7 @@ export default function JournalPage() {
       } else {
         alert("Trade saved successfully!");
         setFormData({
-          ...formData, pair: "", entry_price: "", exit_price: "", stop_loss: "", take_profit: "", lot_size: "", risk_amount: "", profit: "", result: "", setup: "", went_well: "", mistakes: ""
+          ...formData, pair: "", entry_price: "", exit_price: "", stop_loss: "", take_profit: "", lot_size: "", risk_amount: "", profit: "", result: "", setup: "", went_well: "", mistakes: "", image_url: ""
         });
         fetchTrades();
         setView("list");
@@ -133,6 +150,15 @@ export default function JournalPage() {
             )}
           >
             <ListFilter size={14} /> Trades
+          </button>
+          <button 
+            onClick={() => setView("gallery")}
+            className={cn(
+              "px-3 py-1.5 rounded text-xs font-medium transition-colors flex items-center gap-1.5",
+              view === "gallery" ? "bg-white/5 text-brand-amber border border-white/[0.04]" : "text-white/40 hover:text-white/90"
+            )}
+          >
+            <ImageIcon size={14} /> Gallery
           </button>
           <button 
             onClick={() => setView("entry")}
@@ -260,6 +286,32 @@ export default function JournalPage() {
 
           {/* Right Sidebar for Entry */}
           <div className="space-y-4">
+            
+            {/* Image Upload */}
+            <div className="bg-[#0a0a0a] p-5 rounded-lg border border-white/[0.04]">
+              <h3 className="text-xs font-semibold uppercase tracking-widest text-white/50 mb-4 pb-2 border-b border-white/[0.04]">Trade Image</h3>
+              {formData.image_url ? (
+                <div className="relative rounded border border-white/[0.06] overflow-hidden group">
+                  <img src={formData.image_url} alt="Trade setup" className="w-full h-auto object-cover max-h-[200px]" />
+                  <button 
+                    onClick={() => setFormData({ ...formData, image_url: "" })}
+                    className="absolute top-2 right-2 bg-black/50 p-1.5 rounded-full text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-rose-500/80"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              ) : (
+                <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-white/[0.06] rounded cursor-pointer hover:border-brand-amber/50 hover:bg-white/[0.02] transition-colors">
+                  <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                    <Upload className="w-6 h-6 mb-2 text-white/40" />
+                    <p className="text-xs text-white/60 font-medium">Click to upload image</p>
+                    <p className="text-[10px] text-white/40 mt-1">PNG, JPG up to 5MB</p>
+                  </div>
+                  <input type="file" className="hidden" accept="image/*" onChange={handleImageUpload} />
+                </label>
+              )}
+            </div>
+
             <div className="bg-[#0a0a0a] p-5 rounded-lg border border-white/[0.04]">
               <h3 className="text-xs font-semibold uppercase tracking-widest text-white/50 mb-4 pb-2 border-b border-white/[0.04]">Trade Result</h3>
               <div className="grid grid-cols-2 gap-2 mb-4">
@@ -346,6 +398,49 @@ export default function JournalPage() {
                   ))}
                 </tbody>
               </table>
+            )}
+          </div>
+        </div>
+      )}
+
+      {view === "gallery" && (
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {trades.filter(t => t.image_url).length === 0 ? (
+              <div className="col-span-full p-8 text-center bg-[#0a0a0a] rounded-lg border border-white/[0.04] text-white/40 text-xs">
+                <p>No trade images uploaded yet.</p>
+              </div>
+            ) : (
+              trades.filter(t => t.image_url).map((trade) => (
+                <div key={trade.id} className="bg-[#0a0a0a] rounded-lg border border-white/[0.04] overflow-hidden group">
+                  <div className="relative aspect-video overflow-hidden bg-[#111]">
+                    <img src={trade.image_url} alt={`${trade.pair} setup`} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                    <div className="absolute top-2 right-2 flex gap-1">
+                      <span className={cn(
+                        "px-2 py-1 rounded text-[10px] font-bold uppercase tracking-widest backdrop-blur-md",
+                        trade.direction === "Long" ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/20" : "bg-rose-500/20 text-rose-400 border border-rose-500/20"
+                      )}>
+                        {trade.direction}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="p-4 space-y-2">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <h4 className="font-bold text-white/90 uppercase">{trade.pair}</h4>
+                        <p className="text-[10px] text-white/40 font-mono">{trade.date} {trade.time}</p>
+                      </div>
+                      <div className={cn(
+                        "font-mono font-bold text-sm",
+                        trade.profit > 0 ? "text-emerald-500" :
+                        trade.profit < 0 ? "text-rose-500" : "text-white/50"
+                      )}>
+                        {trade.profit > 0 ? "+" : ""}{trade.profit ? `$${Math.abs(trade.profit)}` : 'BE'}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))
             )}
           </div>
         </div>
