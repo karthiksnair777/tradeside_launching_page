@@ -11,6 +11,7 @@ export default function JournalPage() {
   const [view, setView] = useState<"list" | "entry" | "gallery">("entry");
   const [trades, setTrades] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [selectedTrade, setSelectedTrade] = useState<any | null>(null);
   
   // Form State
   const [formData, setFormData] = useState({
@@ -369,7 +370,7 @@ export default function JournalPage() {
                 </thead>
                 <tbody className="divide-y divide-white/[0.02]">
                   {trades.map((trade) => (
-                    <tr key={trade.id} className="hover:bg-white/[0.02] transition-colors group">
+                    <tr key={trade.id} onClick={() => setSelectedTrade(trade)} className="hover:bg-white/[0.04] transition-colors group cursor-pointer">
                       <td className="px-4 py-2.5">
                         <div className="font-semibold text-white/90 uppercase">{trade.pair}</div>
                         <div className="text-[10px] text-white/40 font-mono">{trade.date} {trade.time}</div>
@@ -412,7 +413,7 @@ export default function JournalPage() {
               </div>
             ) : (
               trades.filter(t => t.image_url).map((trade) => (
-                <div key={trade.id} className="bg-[#0a0a0a] rounded-lg border border-white/[0.04] overflow-hidden group">
+                <div key={trade.id} onClick={() => setSelectedTrade(trade)} className="bg-[#0a0a0a] rounded-lg border border-white/[0.04] overflow-hidden group cursor-pointer">
                   <div className="relative aspect-video overflow-hidden bg-[#111]">
                     <img src={trade.image_url} alt={`${trade.pair} setup`} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                     <div className="absolute top-2 right-2 flex gap-1">
@@ -442,6 +443,110 @@ export default function JournalPage() {
                 </div>
               ))
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Trade Details Modal */}
+      {selectedTrade && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setSelectedTrade(null)}>
+          <div className="bg-[#0a0a0a] border border-white/[0.06] rounded-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-2xl relative" onClick={e => e.stopPropagation()}>
+            <button 
+              onClick={() => setSelectedTrade(null)}
+              className="absolute top-4 right-4 p-2 bg-white/5 hover:bg-white/10 rounded-full text-white/70 transition-colors z-10"
+            >
+              <X size={16} />
+            </button>
+            
+            {selectedTrade.image_url && (
+              <div className="w-full bg-[#111] relative border-b border-white/[0.06]">
+                <img src={selectedTrade.image_url} alt="Trade Setup" className="w-full h-auto max-h-[400px] object-contain" />
+              </div>
+            )}
+            
+            <div className="p-6 space-y-6">
+              {/* Header */}
+              <div className="flex justify-between items-start">
+                <div>
+                  <h2 className="text-2xl font-black text-white/90 uppercase tracking-tight">{selectedTrade.pair}</h2>
+                  <div className="flex gap-3 items-center mt-2 text-xs text-white/40 font-mono">
+                    <span>{selectedTrade.date}</span>
+                    <span>{selectedTrade.time}</span>
+                    <span className={cn(
+                      "px-2 py-0.5 rounded font-bold uppercase tracking-widest text-[10px]",
+                      selectedTrade.direction === "Long" ? "bg-emerald-500/10 text-emerald-500" : "bg-rose-500/10 text-rose-500"
+                    )}>{selectedTrade.direction}</span>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="text-[10px] text-white/40 uppercase tracking-widest font-bold mb-1">Result</div>
+                  <div className={cn(
+                    "text-xl font-bold font-mono",
+                    selectedTrade.profit > 0 ? "text-emerald-500" :
+                    selectedTrade.profit < 0 ? "text-rose-500" : "text-white/50"
+                  )}>
+                    {selectedTrade.profit > 0 ? "+" : ""}{selectedTrade.profit ? `$${Math.abs(selectedTrade.profit)}` : 'BE'}
+                  </div>
+                </div>
+              </div>
+
+              {/* Stats Grid */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 p-4 bg-white/[0.02] rounded-lg border border-white/[0.04]">
+                <div>
+                  <div className="text-[10px] text-white/40 uppercase tracking-widest font-semibold">Entry</div>
+                  <div className="font-mono text-sm text-white/90 mt-1">{selectedTrade.entry_price || '-'}</div>
+                </div>
+                <div>
+                  <div className="text-[10px] text-white/40 uppercase tracking-widest font-semibold">Exit</div>
+                  <div className="font-mono text-sm text-white/90 mt-1">{selectedTrade.exit_price || '-'}</div>
+                </div>
+                <div>
+                  <div className="text-[10px] text-white/40 uppercase tracking-widest font-semibold">Stop Loss</div>
+                  <div className="font-mono text-sm text-white/90 mt-1">{selectedTrade.stop_loss || '-'}</div>
+                </div>
+                <div>
+                  <div className="text-[10px] text-white/40 uppercase tracking-widest font-semibold">Take Profit</div>
+                  <div className="font-mono text-sm text-white/90 mt-1">{selectedTrade.take_profit || '-'}</div>
+                </div>
+                <div>
+                  <div className="text-[10px] text-white/40 uppercase tracking-widest font-semibold">Lot Size</div>
+                  <div className="font-mono text-sm text-white/90 mt-1">{selectedTrade.lot_size || '-'}</div>
+                </div>
+                <div>
+                  <div className="text-[10px] text-white/40 uppercase tracking-widest font-semibold">Risk</div>
+                  <div className="font-mono text-sm text-white/90 mt-1">{selectedTrade.risk_amount ? `$${selectedTrade.risk_amount}` : '-'}</div>
+                </div>
+                <div>
+                  <div className="text-[10px] text-white/40 uppercase tracking-widest font-semibold">Confidence</div>
+                  <div className="font-mono text-sm text-white/90 mt-1">{selectedTrade.confidence}/10</div>
+                </div>
+                <div>
+                  <div className="text-[10px] text-white/40 uppercase tracking-widest font-semibold">Stress</div>
+                  <div className="font-mono text-sm text-white/90 mt-1">{selectedTrade.stress}/10</div>
+                </div>
+              </div>
+
+              {/* Notes */}
+              <div className="grid sm:grid-cols-2 gap-4">
+                {selectedTrade.went_well && (
+                  <div className="p-4 bg-emerald-500/5 rounded-lg border border-emerald-500/10">
+                    <h4 className="text-[10px] font-bold text-emerald-500 uppercase tracking-wider mb-2">What went well</h4>
+                    <p className="text-xs text-white/70 leading-relaxed whitespace-pre-wrap">{selectedTrade.went_well}</p>
+                  </div>
+                )}
+                {selectedTrade.mistakes && (
+                  <div className="p-4 bg-rose-500/5 rounded-lg border border-rose-500/10">
+                    <h4 className="text-[10px] font-bold text-rose-500 uppercase tracking-wider mb-2">Mistakes & Lessons</h4>
+                    <p className="text-xs text-white/70 leading-relaxed whitespace-pre-wrap">{selectedTrade.mistakes}</p>
+                  </div>
+                )}
+                {!selectedTrade.went_well && !selectedTrade.mistakes && (
+                  <div className="sm:col-span-2 text-center p-4 bg-white/[0.02] rounded-lg border border-white/[0.04] text-white/40 text-xs">
+                    No notes recorded for this trade.
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       )}
