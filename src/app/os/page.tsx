@@ -208,7 +208,7 @@ export default function DashboardPage() {
 
         {/* Side Panel */}
         <div className="space-y-4">
-          <AICoachPanel />
+          <AICoachPanel trades={trades} />
           
           <div className="bg-[#0a0a0a] border border-white/[0.04] p-5 rounded-lg">
             <h3 className="text-sm font-semibold tracking-wide text-white/90 mb-4">Today's Status</h3>

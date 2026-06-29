@@ -32,6 +32,7 @@ export default function JournalPage() {
     stress: "3",
     went_well: "",
     mistakes: "",
+    improvement_notes: "",
     image_url: ""
   });
 
@@ -113,6 +114,7 @@ export default function JournalPage() {
         stress: parseInt(formData.stress),
         went_well: formData.went_well,
         mistakes: formData.mistakes,
+        improvement_notes: formData.improvement_notes,
         image_url: formData.image_url
       };
 
@@ -124,7 +126,7 @@ export default function JournalPage() {
       } else {
         alert("Trade saved successfully!");
         setFormData({
-          ...formData, pair: "", entry_price: "", exit_price: "", stop_loss: "", take_profit: "", lot_size: "", risk_amount: "", profit: "", result: "", setup: "", went_well: "", mistakes: "", image_url: ""
+          ...formData, pair: "", entry_price: "", exit_price: "", stop_loss: "", take_profit: "", lot_size: "", risk_amount: "", profit: "", result: "", setup: "", went_well: "", mistakes: "", improvement_notes: "", image_url: ""
         });
         fetchTrades();
         setView("list");
@@ -279,6 +281,10 @@ export default function JournalPage() {
                 <div className="space-y-1.5">
                   <label className="text-[10px] text-white/40 uppercase tracking-wider font-semibold">Mistakes & Lessons</label>
                   <textarea name="mistakes" value={formData.mistakes} onChange={handleChange} className="w-full bg-[#111] border border-white/[0.06] rounded px-2.5 py-1.5 text-xs text-white/90 focus:outline-none focus:border-brand-amber/50 min-h-[60px] resize-y" />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[10px] text-white/40 uppercase tracking-wider font-semibold">What to Improve</label>
+                  <textarea name="improvement_notes" value={formData.improvement_notes} onChange={handleChange} placeholder="Based on analysis, what should you improve next time?" className="w-full bg-[#111] border border-white/[0.06] rounded px-2.5 py-1.5 text-xs text-white/90 focus:outline-none focus:border-brand-amber/50 min-h-[60px] resize-y" />
                 </div>
               </div>
             </div>
@@ -527,7 +533,7 @@ export default function JournalPage() {
               </div>
 
               {/* Notes */}
-              <div className="grid sm:grid-cols-2 gap-4">
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {selectedTrade.went_well && (
                   <div className="p-4 bg-emerald-500/5 rounded-lg border border-emerald-500/10">
                     <h4 className="text-[10px] font-bold text-emerald-500 uppercase tracking-wider mb-2">What went well</h4>
@@ -540,8 +546,14 @@ export default function JournalPage() {
                     <p className="text-xs text-white/70 leading-relaxed whitespace-pre-wrap">{selectedTrade.mistakes}</p>
                   </div>
                 )}
-                {!selectedTrade.went_well && !selectedTrade.mistakes && (
-                  <div className="sm:col-span-2 text-center p-4 bg-white/[0.02] rounded-lg border border-white/[0.04] text-white/40 text-xs">
+                {selectedTrade.improvement_notes && (
+                  <div className="p-4 bg-brand-amber/5 rounded-lg border border-brand-amber/10">
+                    <h4 className="text-[10px] font-bold text-brand-amber uppercase tracking-wider mb-2">What to Improve</h4>
+                    <p className="text-xs text-white/70 leading-relaxed whitespace-pre-wrap">{selectedTrade.improvement_notes}</p>
+                  </div>
+                )}
+                {!selectedTrade.went_well && !selectedTrade.mistakes && !selectedTrade.improvement_notes && (
+                  <div className="sm:col-span-2 lg:col-span-3 text-center p-4 bg-white/[0.02] rounded-lg border border-white/[0.04] text-white/40 text-xs">
                     No notes recorded for this trade.
                   </div>
                 )}
