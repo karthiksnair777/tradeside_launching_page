@@ -186,14 +186,14 @@ export default function OSDashboard() {
   };
 
   return (
-    <div className="flex-1 p-6 lg:p-10 overflow-y-auto bg-black text-white space-y-8 animate-in fade-in duration-500">
+    <div className="flex-1 p-4 md:p-6 lg:p-10 overflow-y-auto bg-black text-white space-y-6 md:space-y-8 animate-in fade-in duration-500">
       <header className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight mb-1">Institutional Dashboard</h1>
           <p className="text-sm text-white/50">Welcome back. Execute with precision today.</p>
         </div>
         {stats && (
-          <div className="text-right">
+          <div className="text-left md:text-right mt-2 md:mt-0 pt-4 md:pt-0 border-t border-white/10 md:border-t-0">
             <p className="text-[10px] text-white/40 uppercase tracking-widest font-bold mb-1">Current Balance</p>
             <p className="text-3xl font-black font-mono tracking-tight text-white/90">
               ${stats.balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -238,7 +238,7 @@ export default function OSDashboard() {
 
           {/* Wide Middle Section */}
           <div className="lg:col-span-3 space-y-4">
-            <div className="bg-[#0a0a0a] border border-white/10 rounded-2xl p-6 h-[400px]">
+            <div className="bg-[#0a0a0a] border border-white/10 rounded-2xl p-4 md:p-6 h-[400px]">
               <ChartWidget title="Equity Curve" subtitle="Cumulative Balance Over Time">
                 <AreaChart data={stats.chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                   <defs>
@@ -288,7 +288,7 @@ export default function OSDashboard() {
             </div>
 
             {/* Recent Trades Section */}
-            <div className="mt-8 bg-[#0a0a0a] border border-white/10 rounded-2xl p-6">
+            <div className="mt-8 bg-[#0a0a0a] border border-white/10 rounded-2xl p-4 md:p-6">
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-2">
                   <Activity className="text-brand-amber" size={18} />

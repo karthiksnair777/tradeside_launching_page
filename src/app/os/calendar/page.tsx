@@ -63,8 +63,8 @@ export default function CalendarPage() {
   }
 
   return (
-    <div className="space-y-4 animate-in fade-in duration-500 flex-1 p-6 lg:p-10 overflow-y-auto bg-black text-white h-full relative">
-      <div className="flex items-center justify-between mb-2">
+    <div className="space-y-4 animate-in fade-in duration-500 flex-1 p-4 md:p-6 lg:p-10 overflow-y-auto bg-black text-white h-full relative">
+      <div className="flex flex-col md:flex-row md:items-center justify-between mb-4 gap-2">
         <div>
           <h1 className="text-3xl font-bold tracking-tight mb-2">Performance Calendar</h1>
           <p className="text-gray-400">Daily breakdown of execution, psychology, and profit.</p>
@@ -152,19 +152,19 @@ export default function CalendarPage() {
               className="bg-[#0a0a0a] border border-white/10 rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col shadow-2xl" 
               onClick={e => e.stopPropagation()}
             >
-              <div className="p-6 border-b border-white/10 flex justify-between items-center bg-[#111]">
+              <div className="p-4 md:p-6 border-b border-white/10 flex justify-between items-center bg-[#111]">
                 <div>
-                  <h2 className="text-2xl font-black text-white/90">Day Replay Timeline</h2>
-                  <p className="text-sm font-mono text-white/40 mt-1">Date: 2026-07-{String(selectedDay.date).padStart(2, '0')}</p>
+                  <h2 className="text-xl md:text-2xl font-black text-white/90">Day Replay Timeline</h2>
+                  <p className="text-xs md:text-sm font-mono text-white/40 mt-1">Date: 2026-07-{String(selectedDay.date).padStart(2, '0')}</p>
                 </div>
-                <button onClick={() => setSelectedDay(null)} className="p-2 hover:bg-white/10 rounded-full transition-colors text-white/60 hover:text-white">
+                <button onClick={() => setSelectedDay(null)} className="p-2 hover:bg-white/10 rounded-full transition-colors text-white/60 hover:text-white shrink-0">
                   <X size={20} />
                 </button>
               </div>
 
-              <div className="flex-1 overflow-y-auto p-6 space-y-8 bg-black">
+              <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-8 bg-black">
                 {/* Daily Overview */}
-                <div className="grid grid-cols-4 gap-4 mb-8">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
                   <div className="bg-[#111] p-4 rounded-xl border border-white/5 text-center">
                     <p className="text-[10px] uppercase font-bold text-white/40 mb-1">Net P/L</p>
                     <p className={cn("text-xl font-bold font-mono", selectedDay.pnl > 0 ? "text-emerald-500" : "text-rose-500")}>
@@ -195,14 +195,14 @@ export default function CalendarPage() {
                         trade.profit > 0 ? "bg-emerald-500" : trade.profit < 0 ? "bg-rose-500" : "bg-white/50"
                       )} />
                       
-                      <div className="bg-[#111] border border-white/10 rounded-xl p-5 shadow-lg relative group hover:border-brand-amber/30 transition-colors">
-                        <div className="flex justify-between items-start mb-4">
-                          <div className="flex items-center gap-3">
-                            <h4 className="text-lg font-bold text-white/90 uppercase">{trade.pair}</h4>
+                      <div className="bg-[#111] border border-white/10 rounded-xl p-4 md:p-5 shadow-lg relative group hover:border-brand-amber/30 transition-colors">
+                        <div className="flex flex-col md:flex-row md:justify-between items-start mb-4 gap-2">
+                          <div className="flex flex-wrap items-center gap-2 md:gap-3">
+                            <h4 className="text-base md:text-lg font-bold text-white/90 uppercase">{trade.pair}</h4>
                             <span className={cn("px-2 py-0.5 rounded text-[10px] font-bold uppercase", trade.direction === "Long" ? "bg-emerald-500/10 text-emerald-500" : "bg-rose-500/10 text-rose-500")}>
                               {trade.direction}
                             </span>
-                            <span className="flex items-center gap-1 text-[10px] text-white/40 font-mono"><Clock size={12}/> {trade.time}</span>
+                            <span className="flex items-center gap-1 text-[10px] text-white/40 font-mono w-full md:w-auto"><Clock size={12}/> {trade.time}</span>
                           </div>
                           <div className={cn("text-lg font-mono font-bold", trade.profit > 0 ? "text-emerald-500" : "text-rose-500")}>
                             {trade.profit > 0 ? "+" : ""}${Math.abs(trade.profit)}
