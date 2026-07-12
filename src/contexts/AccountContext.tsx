@@ -41,10 +41,35 @@ export function AccountProvider({ children }: { children: React.ReactNode }) {
       .order("created_at", { ascending: true });
 
     if (!error && data) {
-      setAccounts(data);
-      if (data.length > 0 && !activeAccount) {
-        // Default to the first account if none is selected
-        setActiveAccount(data[0]);
+      if (data.length === 0) {
+        // Auto-create a default account if the database is completely empty
+        const defaultAccount = {
+          name: "Main Trading Account",
+          initial_balance: 100000,
+          currency: "USD",
+        };
+        const { error: insertError } = await insforge.database
+          .from("trading_accounts")
+          .insert([defaultAccount]);
+          
+        if (!insertError) {
+          // Fetch again to get the inserted row
+          const { data: newData } = await insforge.database
+            .from("trading_accounts")
+            .select("*")
+            .order("created_at", { ascending: true });
+            
+          if (newData && newData.length > 0) {
+            setAccounts(newData);
+            setActiveAccount(newData[0]);
+          }
+        }
+      } else {
+        setAccounts(data);
+        if (!activeAccount) {
+          // Default to the first account if none is selected
+          setActiveAccount(data[0]);
+        }
       }
     }
     setLoading(false);

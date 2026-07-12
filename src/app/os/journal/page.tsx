@@ -1,23 +1,25 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Plus, ListFilter, CheckCircle, Upload, Image as ImageIcon, X } from "lucide-react";
+import { Plus, ListFilter, CheckCircle, Upload, Image as ImageIcon, X, Sparkles, Target, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { insforge } from "@/lib/insforge";
 import { useAccount } from "@/contexts/AccountContext";
-import { generateTradeAdvice } from "@/lib/tradeAnalyzer";
+import { aiService } from "@/lib/ai";
 
 export default function JournalPage() {
   const { activeAccount } = useAccount();
   const [view, setView] = useState<"list" | "entry" | "gallery">("entry");
   const [trades, setTrades] = useState<any[]>([]);
+  const [plans, setPlans] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedTrade, setSelectedTrade] = useState<any | null>(null);
   
   // Form State
   const [formData, setFormData] = useState({
+    plan_id: "",
     date: new Date().toISOString().split('T')[0],
-    time: "",
+    time: new Date().toTimeString().substring(0, 5),
     pair: "",
     direction: "Long",
     entry_price: "",
@@ -27,17 +29,15 @@ export default function JournalPage() {
     lot_size: "",
     risk_amount: "",
     profit: "",
-    result: "",
+    result: "Win",
     setup: "",
+    session: "New York",
     confidence: "8",
     stress: "3",
     went_well: "",
-    mistakes: "",
-    improvement_notes: "",
     image_url: ""
   });
 
-  // Psychology checklist state
   const [checklist, setChecklist] = useState({
     followedPlan: false,
     movedStopLoss: false,
@@ -49,128 +49,171 @@ export default function JournalPage() {
 
   useEffect(() => {
     fetchTrades();
+    fetchPlans();
   }, [activeAccount]);
 
   const fetchTrades = async () => {
-    if (!activeAccount) {
-      setTrades([]);
-      return;
-    }
+    if (!activeAccount) return;
     try {
       const { data, error } = await insforge.database
         .from("trades")
+        .select(`*, trading_plans(*)`)
+        .eq("account_id", activeAccount.id)
+        .order("created_at", { ascending: false });
+      if (error) console.error("fetchTrades Error:", error);
+      if (!error && data) setTrades(data);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const fetchPlans = async () => {
+    if (!activeAccount) return;
+    try {
+      const { data, error } = await insforge.database
+        .from("trading_plans")
         .select("*")
         .eq("account_id", activeAccount.id)
         .order("created_at", { ascending: false });
-      
-      if (error) throw error;
-      setTrades(data || []);
-    } catch (error) {
-      console.error("Error fetching trades:", error);
+      if (error) console.error("fetchPlans Error:", error);
+      if (!error && data) setPlans(data);
+    } catch (e) {
+      console.error(e);
     }
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
+    
+    // Auto-fill from plan
+    if (e.target.name === "plan_id" && e.target.value) {
+      const plan = plans.find(p => p.id === e.target.value);
+      if (plan) {
+        setFormData(prev => ({
+          ...prev,
+          plan_id: plan.id,
+          pair: plan.pair,
+          direction: plan.direction,
+          setup: plan.setup,
+          session: plan.session || prev.session,
+          entry_price: plan.entry_price?.toString() || "",
+          stop_loss: plan.stop_loss?.toString() || "",
+          take_profit: plan.take_profit?.toString() || "",
+          risk_amount: plan.risk_amount?.toString() || ""
+        }));
+      }
+    }
   };
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      if (file.size > 5 * 1024 * 1024) { // 5MB limit
-        alert("Image size should be less than 5MB");
-        return;
-      }
       const reader = new FileReader();
-      reader.onloadend = () => {
-        setFormData({ ...formData, image_url: reader.result as string });
-      };
+      reader.onloadend = () => setFormData({ ...formData, image_url: reader.result as string });
       reader.readAsDataURL(file);
     }
   };
 
+  const calculateScores = (payload: any) => {
+    // Mock logic for execution score
+    let execScore = 80;
+    if (checklist.followedPlan) execScore += 10;
+    if (checklist.movedStopLoss) execScore -= 15;
+    if (checklist.closedEarly) execScore -= 10;
+    
+    let emotionalScore = 100 - (payload.stress * 5) + (payload.confidence * 2);
+    emotionalScore = Math.min(100, Math.max(0, emotionalScore));
+    
+    return {
+      score_execution: Math.min(100, Math.max(0, execScore)),
+      score_emotional_control: emotionalScore,
+      score_overall: Math.floor((execScore + emotionalScore) / 2)
+    };
+  };
+
   const handleSaveTrade = async () => {
-    if (!activeAccount) {
-      alert("Please select or create an account first.");
-      return;
-    }
+    if (!activeAccount) return;
     setLoading(true);
     try {
-      const payload = {
+      const payload: any = {
         account_id: activeAccount.id,
+        plan_id: formData.plan_id || null,
         date: formData.date,
-        time: formData.time,
-        pair: formData.pair.toUpperCase(),
+        time: formData.time || "12:00:00", // Ensure time is never empty
+        pair: formData.pair.toUpperCase() || "UNKNOWN",
         direction: formData.direction,
         entry_price: formData.entry_price ? parseFloat(formData.entry_price) : null,
         exit_price: formData.exit_price ? parseFloat(formData.exit_price) : null,
         stop_loss: formData.stop_loss ? parseFloat(formData.stop_loss) : null,
         take_profit: formData.take_profit ? parseFloat(formData.take_profit) : null,
         lot_size: formData.lot_size ? parseFloat(formData.lot_size) : null,
-        risk_amount: formData.risk_amount ? parseFloat(formData.risk_amount) : null,
-        profit: formData.profit ? parseFloat(formData.profit) : null,
+        risk: formData.risk_amount ? parseFloat(formData.risk_amount) : 0,
+        profit: formData.profit ? parseFloat(formData.profit) : 0,
         result: formData.result,
         setup: formData.setup,
-        confidence: parseInt(formData.confidence),
-        stress: parseInt(formData.stress),
+        session: formData.session,
+        mood: formData.stress > "5" ? "Stressed" : "Calm",
+        tags: [],
         went_well: formData.went_well,
-        mistakes: formData.mistakes,
-        improvement_notes: formData.improvement_notes,
-        image_url: formData.image_url
+        screenshot_url: formData.image_url
       };
 
-      const { data, error } = await insforge.database.from("trades").insert([payload]).select();
+      if (checklist.feltFomo) payload.tags.push("FOMO");
+      if (checklist.revengeTraded) payload.tags.push("Revenge");
 
-      if (error) {
-        console.error("Insert Error:", error);
-        alert("Failed to save trade. If RLS is enabled, you may need to disable it or implement authentication first.");
-      } else {
-        alert("Trade saved successfully!");
-        setFormData({
-          ...formData, pair: "", entry_price: "", exit_price: "", stop_loss: "", take_profit: "", lot_size: "", risk_amount: "", profit: "", result: "", setup: "", went_well: "", mistakes: "", improvement_notes: "", image_url: ""
-        });
-        fetchTrades();
-        setView("list");
-      }
-    } catch (error) {
-      console.error("Error saving trade:", error);
+      // AI Generation
+      const aiSummary = await aiService.generateTradeSummary(payload as any, plans.find(p=>p.id === payload.plan_id));
+      const mistakes = await aiService.extractMistakes(payload as any);
+      
+      const scores = calculateScores({...payload, confidence: parseInt(formData.confidence), stress: parseInt(formData.stress)});
+      
+      const fullPayload = {
+        ...payload,
+        ...scores,
+        ai_summary: aiSummary,
+        mistakes: mistakes
+      };
+
+      const { error: insertError } = await insforge.database.from("trades").insert([fullPayload]);
+      if (insertError) throw insertError;
+      
+      alert("Trade logged and AI analyzed successfully!");
+      fetchTrades();
+      setView("list");
+    } catch (error: any) {
+      console.error(error);
+      alert("Failed to save: " + (error.message || "Make sure db schema is applied."));
     }
     setLoading(false);
+  };
+
+  const handleDeleteTrade = async (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    if (!confirm("Are you sure you want to delete this trade?")) return;
+    try {
+      await insforge.database.from("trades").delete().eq("id", id);
+      setTrades(trades.filter(t => t.id !== id));
+    } catch (error) {
+      console.error("Failed to delete trade", error);
+      alert("Failed to delete trade.");
+    }
   };
 
   return (
     <div className="space-y-4 animate-in fade-in duration-500">
       <div className="flex items-center justify-between mb-2">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-white/90">Trading Journal</h1>
-          <p className="text-xs text-white/40 mt-0.5 uppercase tracking-widest">Trade Log & Analysis</p>
+          <h1 className="text-2xl font-bold tracking-tight text-white/90">Smart Trading Journal</h1>
+          <p className="text-xs text-white/40 mt-0.5 uppercase tracking-widest">AI-Powered Trade Analysis</p>
         </div>
         <div className="flex gap-1 bg-[#0a0a0a] p-1 rounded border border-white/[0.04]">
-          <button 
-            onClick={() => setView("list")}
-            className={cn(
-              "px-3 py-1.5 rounded text-xs font-medium transition-colors flex items-center gap-1.5",
-              view === "list" ? "bg-white/5 text-brand-amber border border-white/[0.04]" : "text-white/40 hover:text-white/90"
-            )}
-          >
+          <button onClick={() => setView("list")} className={cn("px-3 py-1.5 rounded text-xs font-medium transition-colors flex items-center gap-1.5", view === "list" ? "bg-white/5 text-brand-amber border border-white/[0.04]" : "text-white/40 hover:text-white/90")}>
             <ListFilter size={14} /> Trades
           </button>
-          <button 
-            onClick={() => setView("gallery")}
-            className={cn(
-              "px-3 py-1.5 rounded text-xs font-medium transition-colors flex items-center gap-1.5",
-              view === "gallery" ? "bg-white/5 text-brand-amber border border-white/[0.04]" : "text-white/40 hover:text-white/90"
-            )}
-          >
+          <button onClick={() => setView("gallery")} className={cn("px-3 py-1.5 rounded text-xs font-medium transition-colors flex items-center gap-1.5", view === "gallery" ? "bg-white/5 text-brand-amber border border-white/[0.04]" : "text-white/40 hover:text-white/90")}>
             <ImageIcon size={14} /> Gallery
           </button>
-          <button 
-            onClick={() => setView("entry")}
-            className={cn(
-              "px-3 py-1.5 rounded text-xs font-medium transition-colors flex items-center gap-1.5",
-              view === "entry" ? "bg-white/5 text-brand-amber border border-white/[0.04]" : "text-white/40 hover:text-white/90"
-            )}
-          >
+          <button onClick={() => setView("entry")} className={cn("px-3 py-1.5 rounded text-xs font-medium transition-colors flex items-center gap-1.5", view === "entry" ? "bg-white/5 text-brand-amber border border-white/[0.04]" : "text-white/40 hover:text-white/90")}>
             <Plus size={14} /> Log Entry
           </button>
         </div>
@@ -180,7 +223,22 @@ export default function JournalPage() {
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
           <div className="xl:col-span-2 space-y-4">
             
-            {/* Trade Details */}
+            <div className="bg-[#0a0a0a] p-5 rounded-lg border border-white/[0.04]">
+              <div className="flex flex-col mb-4 pb-2 border-b border-white/[0.04]">
+                <div className="flex justify-between items-center mb-1">
+                  <h3 className="text-xs font-semibold uppercase tracking-widest text-white/50">Link to Pre-Trade Plan</h3>
+                  <Target size={14} className="text-brand-amber opacity-50" />
+                </div>
+                <p className="text-[10px] text-white/40">Select a saved plan to auto-fill your trade details and score your discipline.</p>
+              </div>
+              <select name="plan_id" value={formData.plan_id} onChange={handleChange} className="w-full bg-[#111] border border-white/[0.06] rounded px-3 py-2 text-sm text-white/90 focus:outline-none focus:border-brand-amber/50">
+                <option value="">-- No plan / Spontaneous Trade --</option>
+                {plans.map(p => (
+                  <option key={p.id} value={p.id}>{p.pair} {p.direction} - {p.setup} ({new Date(p.created_at).toLocaleDateString()})</option>
+                ))}
+              </select>
+            </div>
+
             <div className="bg-[#0a0a0a] p-5 rounded-lg border border-white/[0.04]">
               <h3 className="text-xs font-semibold uppercase tracking-widest text-white/50 mb-4 pb-2 border-b border-white/[0.04]">Trade Details</h3>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -194,56 +252,64 @@ export default function JournalPage() {
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-[10px] text-white/40 uppercase tracking-wider font-semibold">Pair</label>
-                  <input type="text" name="pair" value={formData.pair} onChange={handleChange} placeholder="EUR/USD" className="w-full bg-[#111] border border-white/[0.06] rounded px-2.5 py-1.5 text-xs text-white/90 focus:outline-none focus:border-brand-amber/50 font-mono placeholder:text-white/20 uppercase" />
+                  <input type="text" name="pair" value={formData.pair} onChange={handleChange} className="w-full bg-[#111] border border-white/[0.06] rounded px-2.5 py-1.5 text-xs text-white/90 focus:outline-none focus:border-brand-amber/50 font-mono uppercase" />
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-[10px] text-white/40 uppercase tracking-wider font-semibold">Direction</label>
-                  <select name="direction" value={formData.direction} onChange={handleChange} className="w-full bg-[#111] border border-white/[0.06] rounded px-2.5 py-1.5 text-xs text-white/90 focus:outline-none focus:border-brand-amber/50 appearance-none">
+                  <select name="direction" value={formData.direction} onChange={handleChange} className="w-full bg-[#111] border border-white/[0.06] rounded px-2.5 py-1.5 text-xs text-white/90 focus:outline-none focus:border-brand-amber/50">
                     <option value="Long">Long</option>
                     <option value="Short">Short</option>
+                  </select>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[10px] text-white/40 uppercase tracking-wider font-semibold">Setup</label>
+                  <input type="text" name="setup" value={formData.setup} onChange={handleChange} className="w-full bg-[#111] border border-white/[0.06] rounded px-2.5 py-1.5 text-xs text-white/90 focus:outline-none focus:border-brand-amber/50 font-mono" />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[10px] text-white/40 uppercase tracking-wider font-semibold">Session</label>
+                  <select name="session" value={formData.session} onChange={handleChange} className="w-full bg-[#111] border border-white/[0.06] rounded px-2.5 py-1.5 text-xs text-white/90 focus:outline-none focus:border-brand-amber/50">
+                    <option value="Asia">Asia</option>
+                    <option value="London">London</option>
+                    <option value="New York">New York</option>
                   </select>
                 </div>
               </div>
             </div>
 
-            {/* Execution */}
             <div className="bg-[#0a0a0a] p-5 rounded-lg border border-white/[0.04]">
               <h3 className="text-xs font-semibold uppercase tracking-widest text-white/50 mb-4 pb-2 border-b border-white/[0.04]">Execution</h3>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                 <div className="space-y-1.5">
                   <label className="text-[10px] text-white/40 uppercase tracking-wider font-semibold">Entry Price</label>
-                  <input type="number" name="entry_price" value={formData.entry_price} onChange={handleChange} step="0.00001" className="w-full bg-[#111] border border-white/[0.06] rounded px-2.5 py-1.5 text-xs text-white/90 focus:outline-none focus:border-brand-amber/50 font-mono" />
+                  <input type="number" name="entry_price" value={formData.entry_price} onChange={handleChange} step="any" className="w-full bg-[#111] border border-white/[0.06] rounded px-2.5 py-1.5 text-xs text-white/90 focus:outline-none focus:border-brand-amber/50 font-mono" />
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-[10px] text-white/40 uppercase tracking-wider font-semibold">Stop Loss</label>
-                  <input type="number" name="stop_loss" value={formData.stop_loss} onChange={handleChange} step="0.00001" className="w-full bg-[#111] border border-white/[0.06] rounded px-2.5 py-1.5 text-xs text-white/90 focus:outline-none focus:border-brand-amber/50 font-mono" />
+                  <input type="number" name="stop_loss" value={formData.stop_loss} onChange={handleChange} step="any" className="w-full bg-[#111] border border-white/[0.06] rounded px-2.5 py-1.5 text-xs text-white/90 focus:outline-none focus:border-brand-amber/50 font-mono" />
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-[10px] text-white/40 uppercase tracking-wider font-semibold">Take Profit</label>
-                  <input type="number" name="take_profit" value={formData.take_profit} onChange={handleChange} step="0.00001" className="w-full bg-[#111] border border-white/[0.06] rounded px-2.5 py-1.5 text-xs text-white/90 focus:outline-none focus:border-brand-amber/50 font-mono" />
+                  <input type="number" name="take_profit" value={formData.take_profit} onChange={handleChange} step="any" className="w-full bg-[#111] border border-white/[0.06] rounded px-2.5 py-1.5 text-xs text-white/90 focus:outline-none focus:border-brand-amber/50 font-mono" />
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-[10px] text-white/40 uppercase tracking-wider font-semibold">Exit Price</label>
-                  <input type="number" name="exit_price" value={formData.exit_price} onChange={handleChange} step="0.00001" className="w-full bg-[#111] border border-white/[0.06] rounded px-2.5 py-1.5 text-xs text-white/90 focus:outline-none focus:border-brand-amber/50 font-mono" />
+                  <input type="number" name="exit_price" value={formData.exit_price} onChange={handleChange} step="any" className="w-full bg-[#111] border border-white/[0.06] rounded px-2.5 py-1.5 text-xs text-white/90 focus:outline-none focus:border-brand-amber/50 font-mono" />
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-[10px] text-white/40 uppercase tracking-wider font-semibold">Lot Size</label>
-                  <input type="number" name="lot_size" value={formData.lot_size} onChange={handleChange} step="0.01" className="w-full bg-[#111] border border-white/[0.06] rounded px-2.5 py-1.5 text-xs text-white/90 focus:outline-none focus:border-brand-amber/50 font-mono" />
+                  <input type="number" name="lot_size" value={formData.lot_size} onChange={handleChange} step="any" className="w-full bg-[#111] border border-white/[0.06] rounded px-2.5 py-1.5 text-xs text-white/90 focus:outline-none focus:border-brand-amber/50 font-mono" />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-[10px] text-white/40 uppercase tracking-wider font-semibold">Risk Amount ($)</label>
+                  <label className="text-[10px] text-white/40 uppercase tracking-wider font-semibold">Risk ($)</label>
                   <input type="number" name="risk_amount" value={formData.risk_amount} onChange={handleChange} className="w-full bg-[#111] border border-white/[0.06] rounded px-2.5 py-1.5 text-xs text-white/90 focus:outline-none focus:border-brand-amber/50 font-mono" />
                 </div>
               </div>
             </div>
 
-            {/* Psychology & Review */}
             <div className="bg-[#0a0a0a] p-5 rounded-lg border border-white/[0.04] space-y-5">
-              <h3 className="text-xs font-semibold uppercase tracking-widest text-white/50 border-b border-white/[0.04] pb-2">Psychology & Review</h3>
-              
+              <h3 className="text-xs font-semibold uppercase tracking-widest text-white/50 border-b border-white/[0.04] pb-2">Psychology Checklist</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 <div className="space-y-3">
-                  <h4 className="text-[10px] font-bold text-white/30 uppercase tracking-wider">During Trade</h4>
                   {Object.entries(checklist).map(([key, val]) => (
                     <label key={key} className="flex items-center gap-2.5 cursor-pointer group">
                       <div className="w-3.5 h-3.5 rounded-sm border border-white/[0.1] group-hover:border-brand-amber/50 flex items-center justify-center transition-colors bg-[#111]">
@@ -254,9 +320,7 @@ export default function JournalPage() {
                     </label>
                   ))}
                 </div>
-
                 <div className="space-y-4">
-                  <h4 className="text-[10px] font-bold text-white/30 uppercase tracking-wider">Emotions</h4>
                   <div className="space-y-1.5">
                     <div className="flex justify-between">
                       <label className="text-[10px] text-white/40 uppercase tracking-wider font-semibold">Confidence</label>
@@ -266,297 +330,186 @@ export default function JournalPage() {
                   </div>
                   <div className="space-y-1.5">
                     <div className="flex justify-between">
-                      <label className="text-[10px] text-white/40 uppercase tracking-wider font-semibold">Stress</label>
+                      <label className="text-[10px] text-white/40 uppercase tracking-wider font-semibold">Stress / Anxiety</label>
                       <span className="text-[10px] font-mono text-white/60">{formData.stress}/10</span>
                     </div>
                     <input type="range" name="stress" value={formData.stress} onChange={handleChange} min="1" max="10" className="w-full accent-brand-orange h-1 bg-[#111] rounded appearance-none" />
                   </div>
                 </div>
               </div>
-
-              <div className="space-y-4 pt-4 border-t border-white/[0.04]">
-                <div className="space-y-1.5">
-                  <label className="text-[10px] text-white/40 uppercase tracking-wider font-semibold">What went well?</label>
-                  <textarea name="went_well" value={formData.went_well} onChange={handleChange} className="w-full bg-[#111] border border-white/[0.06] rounded px-2.5 py-1.5 text-xs text-white/90 focus:outline-none focus:border-brand-amber/50 min-h-[60px] resize-y" />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-[10px] text-white/40 uppercase tracking-wider font-semibold">Mistakes & Lessons</label>
-                  <textarea name="mistakes" value={formData.mistakes} onChange={handleChange} className="w-full bg-[#111] border border-white/[0.06] rounded px-2.5 py-1.5 text-xs text-white/90 focus:outline-none focus:border-brand-amber/50 min-h-[60px] resize-y" />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-[10px] text-white/40 uppercase tracking-wider font-semibold">What to Improve</label>
-                  <textarea name="improvement_notes" value={formData.improvement_notes} onChange={handleChange} placeholder="Based on analysis, what should you improve next time?" className="w-full bg-[#111] border border-white/[0.06] rounded px-2.5 py-1.5 text-xs text-white/90 focus:outline-none focus:border-brand-amber/50 min-h-[60px] resize-y" />
-                </div>
-              </div>
             </div>
-
           </div>
 
-          {/* Right Sidebar for Entry */}
           <div className="space-y-4">
             
-            {/* Image Upload */}
             <div className="bg-[#0a0a0a] p-5 rounded-lg border border-white/[0.04]">
-              <h3 className="text-xs font-semibold uppercase tracking-widest text-white/50 mb-4 pb-2 border-b border-white/[0.04]">Trade Image</h3>
-              {formData.image_url ? (
-                <div className="relative rounded border border-white/[0.06] overflow-hidden group">
-                  <img src={formData.image_url} alt="Trade setup" className="w-full h-auto object-cover max-h-[200px]" />
-                  <button 
-                    onClick={() => setFormData({ ...formData, image_url: "" })}
-                    className="absolute top-2 right-2 bg-black/50 p-1.5 rounded-full text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-rose-500/80"
-                  >
-                    <X size={14} />
-                  </button>
-                </div>
-              ) : (
-                <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-white/[0.06] rounded cursor-pointer hover:border-brand-amber/50 hover:bg-white/[0.02] transition-colors">
-                  <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                    <Upload className="w-6 h-6 mb-2 text-white/40" />
-                    <p className="text-xs text-white/60 font-medium">Click to upload image</p>
-                    <p className="text-[10px] text-white/40 mt-1">PNG, JPG up to 5MB</p>
-                  </div>
-                  <input type="file" className="hidden" accept="image/*" onChange={handleImageUpload} />
-                </label>
-              )}
-            </div>
-
-            <div className="bg-[#0a0a0a] p-5 rounded-lg border border-white/[0.04]">
-              <h3 className="text-xs font-semibold uppercase tracking-widest text-white/50 mb-4 pb-2 border-b border-white/[0.04]">Trade Result</h3>
-              <div className="grid grid-cols-2 gap-2 mb-4">
-                {["Win", "Loss", "Break Even", "Partial"].map((res) => (
-                  <button 
-                    key={res}
-                    onClick={() => setFormData({ ...formData, result: res })}
-                    className={cn(
-                      "py-1.5 rounded border text-[11px] font-bold uppercase tracking-wider transition-colors",
-                      formData.result === res 
-                        ? (res === "Win" ? "bg-emerald-500/20 border-emerald-500 text-emerald-500" : res === "Loss" ? "bg-rose-500/20 border-rose-500 text-rose-500" : "bg-white/10 border-white/30 text-white") 
-                        : "bg-white/[0.02] border-white/5 text-white/40 hover:bg-white/5"
-                    )}
-                  >
+              <h3 className="text-xs font-semibold uppercase tracking-widest text-white/50 mb-4 pb-2 border-b border-white/[0.04]">Result & Notes</h3>
+              <div className="grid grid-cols-3 gap-2 mb-4">
+                {["Win", "Loss", "Break Even"].map((res) => (
+                  <button key={res} onClick={() => setFormData({ ...formData, result: res })} className={cn("py-1.5 rounded border text-[11px] font-bold uppercase tracking-wider transition-colors", formData.result === res ? "bg-white/20 border-white/40 text-white" : "bg-white/[0.02] border-white/5 text-white/40")}>
                     {res}
                   </button>
                 ))}
               </div>
-              <div className="space-y-1.5">
+              <div className="space-y-1.5 mb-4">
                 <label className="text-[10px] text-white/40 uppercase tracking-wider font-semibold">Net P/L ($)</label>
                 <input type="number" name="profit" value={formData.profit} onChange={handleChange} className="w-full bg-[#111] border border-white/[0.06] rounded px-3 py-2 font-mono font-bold text-lg focus:outline-none focus:border-brand-amber/50" placeholder="$0.00" />
               </div>
+              <div className="space-y-1.5">
+                <label className="text-[10px] text-white/40 uppercase tracking-wider font-semibold">Manual Notes</label>
+                <textarea name="went_well" value={formData.went_well} onChange={handleChange} className="w-full bg-[#111] border border-white/[0.06] rounded px-2.5 py-1.5 text-xs text-white/90 focus:outline-none focus:border-brand-amber/50 min-h-[80px]" placeholder="Optional notes... AI will generate the rest." />
+              </div>
+            </div>
+
+            <div className="bg-[#0a0a0a] p-5 rounded-lg border border-white/[0.04]">
+              <h3 className="text-xs font-semibold uppercase tracking-widest text-white/50 mb-4 pb-2 border-b border-white/[0.04]">Screenshot</h3>
+              {formData.image_url ? (
+                <div className="relative rounded overflow-hidden group border border-white/10">
+                  <img src={formData.image_url} alt="Trade" className="w-full" />
+                  <button onClick={() => setFormData({ ...formData, image_url: "" })} className="absolute top-2 right-2 bg-black/50 p-1.5 rounded-full hover:bg-rose-500/80"><X size={14}/></button>
+                </div>
+              ) : (
+                <label className="flex flex-col items-center justify-center w-full h-24 border border-dashed border-white/20 rounded cursor-pointer hover:border-brand-amber/50">
+                  <Upload className="w-5 h-5 mb-1 text-white/40" />
+                  <span className="text-[10px] text-white/50">Upload Screenshot</span>
+                  <input type="file" className="hidden" accept="image/*" onChange={handleImageUpload} />
+                </label>
+              )}
             </div>
             
-            <button 
-              onClick={handleSaveTrade} 
-              disabled={loading}
-              className="w-full py-2.5 rounded bg-brand-amber text-[#0a0a0a] font-bold text-sm uppercase tracking-wider hover:bg-brand-amber/90 transition-all disabled:opacity-50"
-            >
-              {loading ? "Saving..." : "Save Trade"}
+            <button onClick={handleSaveTrade} disabled={loading} className="w-full py-3 rounded bg-brand-amber text-black font-bold text-sm uppercase tracking-wider hover:bg-brand-amber/90 transition-all flex justify-center items-center gap-2">
+              <Sparkles size={16} />
+              {loading ? "Analyzing..." : "Save & Analyze"}
             </button>
           </div>
         </div>
       )}
 
+      {/* List and Details View */}
       {view === "list" && (
-        <div className="bg-[#0a0a0a] rounded-lg border border-white/[0.04]">
-          <div className="px-4 py-3 flex items-center justify-between border-b border-white/[0.04]">
-            <h3 className="text-sm font-semibold text-white/90 tracking-wide">Trade History</h3>
-          </div>
-          <div className="overflow-x-auto">
-            {trades.length === 0 ? (
-              <div className="p-8 text-center text-white/40 text-xs">
-                <p>No trades logged yet. Start by logging an entry!</p>
-              </div>
-            ) : (
-              <table className="w-full text-xs text-left whitespace-nowrap">
-                <thead className="text-[10px] text-white/40 uppercase tracking-widest border-b border-white/[0.04]">
-                  <tr>
-                    <th className="px-4 py-2.5 font-medium">Date/Pair</th>
-                    <th className="px-4 py-2.5 font-medium">Type</th>
-                    <th className="px-4 py-2.5 font-medium text-right">Risk</th>
-                    <th className="px-4 py-2.5 font-medium text-right">P/L</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-white/[0.02]">
-                  {trades.map((trade) => (
-                    <tr key={trade.id} onClick={() => setSelectedTrade(trade)} className="hover:bg-white/[0.04] transition-colors group cursor-pointer">
-                      <td className="px-4 py-2.5">
-                        <div className="font-semibold text-white/90 uppercase">{trade.pair}</div>
-                        <div className="text-[10px] text-white/40 font-mono">{trade.date} {trade.time}</div>
-                      </td>
-                      <td className="px-4 py-2.5">
-                        <span className={cn(
-                          "px-1.5 py-0.5 rounded-sm text-[10px] font-bold uppercase tracking-widest",
-                          trade.direction === "Long" ? "bg-emerald-500/10 text-emerald-500" : "bg-rose-500/10 text-rose-500"
-                        )}>
-                          {trade.direction}
-                        </span>
-                      </td>
-                      <td className="px-4 py-2.5 text-right font-mono">
-                        <div className="text-white/80">{trade.risk_amount ? `$${trade.risk_amount}` : '-'}</div>
-                      </td>
-                      <td className="px-4 py-2.5 text-right font-mono">
-                        <div className={cn(
-                          "font-bold",
-                          trade.profit > 0 ? "text-emerald-500" :
-                          trade.profit < 0 ? "text-rose-500" : "text-white/50"
-                        )}>
-                          {trade.profit > 0 ? "+" : ""}{trade.profit ? `$${Math.abs(trade.profit)}` : 'BE'}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
+        <div className="bg-[#0a0a0a] rounded-lg border border-white/[0.04] overflow-x-auto">
+          <table className="w-full text-xs text-left whitespace-nowrap">
+            <thead className="text-[10px] text-white/40 uppercase tracking-widest border-b border-white/[0.04]">
+              <tr>
+                <th className="px-4 py-3 font-medium">Date / Pair</th>
+                <th className="px-4 py-3 font-medium text-center">Score</th>
+                <th className="px-4 py-3 font-medium text-right">P/L</th>
+                <th className="px-4 py-3 font-medium text-right w-10"></th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-white/[0.02]">
+              {trades.map((trade) => (
+                <tr key={trade.id} onClick={() => setSelectedTrade(trade)} className="hover:bg-white/[0.04] cursor-pointer">
+                  <td className="px-4 py-3">
+                    <div className="font-semibold text-white/90">{trade.pair} <span className={cn("ml-2 px-1.5 py-0.5 rounded text-[9px]", trade.direction==="Long"?"bg-emerald-500/10 text-emerald-500":"bg-rose-500/10 text-rose-500")}>{trade.direction}</span></div>
+                    <div className="text-[10px] text-white/40 font-mono mt-1">{trade.date}</div>
+                  </td>
+                  <td className="px-4 py-3 text-center">
+                    <div className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-brand-amber/10 text-brand-amber font-bold text-[10px] border border-brand-amber/20">
+                      {trade.score_overall || '-'}
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 text-right font-mono font-bold text-sm">
+                    <span className={trade.profit > 0 ? "text-emerald-500" : trade.profit < 0 ? "text-rose-500" : "text-white/50"}>
+                      {trade.profit > 0 ? "+" : ""}{trade.profit || '0'}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <button 
+                      onClick={(e) => handleDeleteTrade(e, trade.id)} 
+                      className="p-1.5 rounded-md text-white/20 hover:text-rose-500 hover:bg-rose-500/10 transition-colors"
+                      title="Delete Trade"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
 
+      {/* Gallery View */}
       {view === "gallery" && (
-        <div className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {trades.filter(t => t.image_url).length === 0 ? (
-              <div className="col-span-full p-8 text-center bg-[#0a0a0a] rounded-lg border border-white/[0.04] text-white/40 text-xs">
-                <p>No trade images uploaded yet.</p>
-              </div>
-            ) : (
-              trades.filter(t => t.image_url).map((trade) => (
-                <div key={trade.id} onClick={() => setSelectedTrade(trade)} className="bg-[#0a0a0a] rounded-lg border border-white/[0.04] overflow-hidden group cursor-pointer">
-                  <div className="relative aspect-video overflow-hidden bg-[#111]">
-                    <img src={trade.image_url} alt={`${trade.pair} setup`} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                    <div className="absolute top-2 right-2 flex gap-1">
-                      <span className={cn(
-                        "px-2 py-1 rounded text-[10px] font-bold uppercase tracking-widest backdrop-blur-md",
-                        trade.direction === "Long" ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/20" : "bg-rose-500/20 text-rose-400 border border-rose-500/20"
-                      )}>
-                        {trade.direction}
-                      </span>
-                    </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {trades.filter(t => t.screenshot_url).length === 0 ? (
+            <div className="col-span-full p-8 text-center text-white/40 bg-[#0a0a0a] rounded-lg border border-white/[0.04]">
+              No screenshots found. Upload images when logging trades to see them here!
+            </div>
+          ) : (
+            trades.filter(t => t.screenshot_url).map(trade => (
+              <div key={trade.id} onClick={() => setSelectedTrade(trade)} className="bg-[#0a0a0a] rounded-lg border border-white/[0.04] overflow-hidden cursor-pointer group hover:border-brand-amber/50 transition-colors">
+                <div className="aspect-video relative overflow-hidden bg-[#111]">
+                  <img src={trade.screenshot_url} alt="Trade Screenshot" className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-500" />
+                </div>
+                <div className="p-4 flex justify-between items-center">
+                  <div>
+                    <h3 className="font-bold text-white/90">{trade.pair}</h3>
+                    <p className="text-[10px] text-white/40 font-mono">{trade.date}</p>
                   </div>
-                  <div className="p-4 space-y-2">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <h4 className="font-bold text-white/90 uppercase">{trade.pair}</h4>
-                        <p className="text-[10px] text-white/40 font-mono">{trade.date} {trade.time}</p>
-                      </div>
-                      <div className={cn(
-                        "font-mono font-bold text-sm",
-                        trade.profit > 0 ? "text-emerald-500" :
-                        trade.profit < 0 ? "text-rose-500" : "text-white/50"
-                      )}>
-                        {trade.profit > 0 ? "+" : ""}{trade.profit ? `$${Math.abs(trade.profit)}` : 'BE'}
-                      </div>
-                    </div>
+                  <div className={cn("font-bold font-mono text-sm", trade.profit > 0 ? "text-emerald-500" : "text-rose-500")}>
+                    {trade.profit > 0 ? "+" : ""}${Math.abs(trade.profit)}
                   </div>
                 </div>
-              ))
-            )}
-          </div>
+              </div>
+            ))
+          )}
         </div>
       )}
 
-      {/* Trade Details Modal */}
+      {/* Detail Modal */}
       {selectedTrade && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setSelectedTrade(null)}>
-          <div className="bg-[#0a0a0a] border border-white/[0.06] rounded-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-2xl relative" onClick={e => e.stopPropagation()}>
-            <button 
-              onClick={() => setSelectedTrade(null)}
-              className="absolute top-4 right-4 p-2 bg-white/5 hover:bg-white/10 rounded-full text-white/70 transition-colors z-10"
-            >
-              <X size={16} />
-            </button>
-            
-            {selectedTrade.image_url && (
-              <div className="w-full bg-[#111] relative border-b border-white/[0.06]">
-                <img src={selectedTrade.image_url} alt="Trade Setup" className="w-full h-auto max-h-[400px] object-contain" />
-              </div>
-            )}
-            
-            <div className="p-6 space-y-6">
-              {/* Header */}
-              <div className="flex justify-between items-start">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm" onClick={() => setSelectedTrade(null)}>
+          <div className="bg-[#0a0a0a] border border-white/[0.06] rounded-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="p-6">
+              <div className="flex justify-between items-start mb-6">
                 <div>
-                  <h2 className="text-2xl font-black text-white/90 uppercase tracking-tight">{selectedTrade.pair}</h2>
-                  <div className="flex gap-3 items-center mt-2 text-xs text-white/40 font-mono">
-                    <span>{selectedTrade.date}</span>
-                    <span>{selectedTrade.time}</span>
-                    <span className={cn(
-                      "px-2 py-0.5 rounded font-bold uppercase tracking-widest text-[10px]",
-                      selectedTrade.direction === "Long" ? "bg-emerald-500/10 text-emerald-500" : "bg-rose-500/10 text-rose-500"
-                    )}>{selectedTrade.direction}</span>
-                  </div>
+                  <h2 className="text-2xl font-black text-white/90">{selectedTrade.pair}</h2>
+                  <div className="text-xs text-white/40 font-mono mt-1">{selectedTrade.date} | {selectedTrade.direction}</div>
                 </div>
                 <div className="text-right">
-                  <div className="text-[10px] text-white/40 uppercase tracking-widest font-bold mb-1">Result</div>
-                  <div className={cn(
-                    "text-xl font-bold font-mono",
-                    selectedTrade.profit > 0 ? "text-emerald-500" :
-                    selectedTrade.profit < 0 ? "text-rose-500" : "text-white/50"
-                  )}>
-                    {selectedTrade.profit > 0 ? "+" : ""}{selectedTrade.profit ? `$${Math.abs(selectedTrade.profit)}` : 'BE'}
+                  <div className={cn("text-2xl font-bold font-mono", selectedTrade.profit > 0 ? "text-emerald-500" : selectedTrade.profit < 0 ? "text-rose-500" : "text-white/50")}>
+                    {selectedTrade.profit > 0 ? "+" : ""}${Math.abs(selectedTrade.profit || 0)}
                   </div>
                 </div>
               </div>
 
-              {/* Stats Grid */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 p-4 bg-white/[0.02] rounded-lg border border-white/[0.04]">
-                <div>
-                  <div className="text-[10px] text-white/40 uppercase tracking-widest font-semibold">Entry</div>
-                  <div className="font-mono text-sm text-white/90 mt-1">{selectedTrade.entry_price || '-'}</div>
+              <div className="grid grid-cols-3 gap-4 mb-6">
+                <div className="bg-[#111] p-4 rounded-lg text-center border border-white/5">
+                  <div className="text-[10px] text-white/40 uppercase mb-1">Execution Score</div>
+                  <div className="text-xl font-bold text-brand-amber">{selectedTrade.score_overall || '-'}</div>
                 </div>
-                <div>
-                  <div className="text-[10px] text-white/40 uppercase tracking-widest font-semibold">Exit</div>
-                  <div className="font-mono text-sm text-white/90 mt-1">{selectedTrade.exit_price || '-'}</div>
+                <div className="bg-[#111] p-4 rounded-lg text-center border border-white/5">
+                  <div className="text-[10px] text-white/40 uppercase mb-1">Risk Amount</div>
+                  <div className="text-xl font-bold text-white/90">${selectedTrade.risk || '0'}</div>
                 </div>
-                <div>
-                  <div className="text-[10px] text-white/40 uppercase tracking-widest font-semibold">Stop Loss</div>
-                  <div className="font-mono text-sm text-white/90 mt-1">{selectedTrade.stop_loss || '-'}</div>
-                </div>
-                <div>
-                  <div className="text-[10px] text-white/40 uppercase tracking-widest font-semibold">Take Profit</div>
-                  <div className="font-mono text-sm text-white/90 mt-1">{selectedTrade.take_profit || '-'}</div>
-                </div>
-                <div>
-                  <div className="text-[10px] text-white/40 uppercase tracking-widest font-semibold">Lot Size</div>
-                  <div className="font-mono text-sm text-white/90 mt-1">{selectedTrade.lot_size || '-'}</div>
-                </div>
-                <div>
-                  <div className="text-[10px] text-white/40 uppercase tracking-widest font-semibold">Risk</div>
-                  <div className="font-mono text-sm text-white/90 mt-1">{selectedTrade.risk_amount ? `$${selectedTrade.risk_amount}` : '-'}</div>
-                </div>
-                <div>
-                  <div className="text-[10px] text-white/40 uppercase tracking-widest font-semibold">Confidence</div>
-                  <div className="font-mono text-sm text-white/90 mt-1">{selectedTrade.confidence}/10</div>
-                </div>
-                <div>
-                  <div className="text-[10px] text-white/40 uppercase tracking-widest font-semibold">Stress</div>
-                  <div className="font-mono text-sm text-white/90 mt-1">{selectedTrade.stress}/10</div>
+                <div className="bg-[#111] p-4 rounded-lg text-center border border-white/5">
+                  <div className="text-[10px] text-white/40 uppercase mb-1">Plan Link</div>
+                  <div className="text-sm font-bold text-white/90 mt-1">{selectedTrade.trading_plans ? "Yes" : "No Plan"}</div>
                 </div>
               </div>
 
-              {/* Notes */}
-              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {selectedTrade.went_well && (
-                  <div className="p-4 bg-emerald-500/5 rounded-lg border border-emerald-500/10">
-                    <h4 className="text-[10px] font-bold text-emerald-500 uppercase tracking-wider mb-2">What went well</h4>
-                    <p className="text-xs text-white/70 leading-relaxed whitespace-pre-wrap">{selectedTrade.went_well}</p>
+              <div className="space-y-4">
+                <div className="p-4 bg-brand-amber/5 border border-brand-amber/20 rounded-lg">
+                  <div className="flex items-center gap-2 mb-2 text-brand-amber">
+                    <Sparkles size={14} />
+                    <h3 className="text-xs font-bold uppercase tracking-widest">AI Trade Summary</h3>
+                  </div>
+                  <p className="text-sm text-white/80 leading-relaxed">{selectedTrade.ai_summary || 'No AI summary generated for this trade.'}</p>
+                </div>
+
+                {selectedTrade.mistakes && (Array.isArray(selectedTrade.mistakes) ? selectedTrade.mistakes.length > 0 : true) && (
+                  <div className="p-4 bg-rose-500/5 border border-rose-500/20 rounded-lg">
+                    <h3 className="text-xs font-bold text-rose-500 uppercase tracking-widest mb-2">Detected Mistakes</h3>
+                    <ul className="list-disc list-inside text-sm text-rose-400/80">
+                      {(Array.isArray(selectedTrade.mistakes) ? selectedTrade.mistakes : [selectedTrade.mistakes]).map((m: any, i: number) => <li key={i}>{m}</li>)}
+                    </ul>
                   </div>
                 )}
-                {selectedTrade.mistakes && (
-                  <div className="p-4 bg-rose-500/5 rounded-lg border border-rose-500/10">
-                    <h4 className="text-[10px] font-bold text-rose-500 uppercase tracking-wider mb-2">Mistakes & Lessons</h4>
-                    <p className="text-xs text-white/70 leading-relaxed whitespace-pre-wrap">{selectedTrade.mistakes}</p>
-                  </div>
-                )}
-                {(selectedTrade.improvement_notes || generateTradeAdvice(selectedTrade)) && (
-                  <div className="p-4 bg-brand-amber/5 rounded-lg border border-brand-amber/10">
-                    <h4 className="text-[10px] font-bold text-brand-amber uppercase tracking-wider mb-2">What to Improve (Analysis)</h4>
-                    <p className="text-xs text-white/70 leading-relaxed whitespace-pre-wrap">{selectedTrade.improvement_notes || generateTradeAdvice(selectedTrade)}</p>
-                  </div>
-                )}
-                {!selectedTrade.went_well && !selectedTrade.mistakes && !selectedTrade.improvement_notes && (
-                  <div className="sm:col-span-2 lg:col-span-3 text-center p-4 bg-white/[0.02] rounded-lg border border-white/[0.04] text-white/40 text-xs">
-                    No notes recorded for this trade.
-                  </div>
+                
+                {selectedTrade.screenshot_url && (
+                  <img src={selectedTrade.screenshot_url} alt="Trade" className="w-full rounded border border-white/10" />
                 )}
               </div>
             </div>

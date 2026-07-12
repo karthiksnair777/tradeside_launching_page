@@ -8,31 +8,42 @@ import {
   BookOpen, 
   Calendar, 
   LineChart, 
-  Brain, 
-  BookMarked, 
   Target, 
-  FileText, 
   Settings,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Shield,
+  Dna,
+  BookX,
+  Target as TargetGoal,
+  FileText,
+  ChevronDown,
+  Brain
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAccount } from "@/contexts/AccountContext";
+import { AccountManager } from "./AccountManager";
 
 const navItems = [
   { name: "Dashboard", href: "/os", icon: LayoutDashboard },
+  { name: "Plan Builder", href: "/os/plan", icon: Target },
   { name: "Journal", href: "/os/journal", icon: BookOpen },
   { name: "Calendar", href: "/os/calendar", icon: Calendar },
-  { name: "Analytics", href: "/os/analytics", icon: LineChart },
+  { name: "Daily Mission", href: "/os/goals", icon: TargetGoal },
+  { name: "Strategy Lab", href: "/os/analytics", icon: LineChart },
+  { name: "Trading DNA", href: "/os/playbook/dna", icon: Dna },
   { name: "Psychology", href: "/os/psychology", icon: Brain },
-  { name: "Playbook", href: "/os/playbook", icon: BookMarked },
-  { name: "Goals", href: "/os/goals", icon: Target },
-  { name: "Reports", href: "/os/reports", icon: FileText },
+  { name: "Mistakes", href: "/os/mistakes", icon: BookX },
+  { name: "Rule Engine", href: "/os/rules", icon: Shield },
+  { name: "AI Review", href: "/os/reports/weekly", icon: FileText },
   { name: "Settings", href: "/os/settings", icon: Settings },
 ];
 
 export function Sidebar() {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
+  const [showAccountManager, setShowAccountManager] = useState(false);
+  const { activeAccount } = useAccount();
 
   return (
     <aside 
@@ -47,7 +58,7 @@ export function Sidebar() {
             <div className="w-6 h-6 rounded-sm bg-brand-amber/10 flex items-center justify-center text-brand-amber font-bold text-xs border border-brand-amber/20">
               T
             </div>
-            <span className="font-bold text-sm tracking-tight text-white/90">Journal OS</span>
+            <span className="font-bold text-sm tracking-tight text-white/90">Tradeside OS</span>
           </Link>
         )}
         {collapsed && (
@@ -86,7 +97,7 @@ export function Sidebar() {
               <item.icon 
                 size={14} 
                 className={cn(
-                  "transition-colors",
+                  "transition-colors shrink-0",
                   finalActive ? "text-brand-amber" : "text-white/40 group-hover:text-white/70"
                 )} 
               />
@@ -94,7 +105,6 @@ export function Sidebar() {
                 <span className="font-medium text-xs tracking-wide">{item.name}</span>
               )}
               
-              {/* Active Indicator Line */}
               {finalActive && (
                 <div className="absolute left-0 top-1 bottom-1 w-[2px] bg-brand-amber rounded-r-full" />
               )}
@@ -103,17 +113,35 @@ export function Sidebar() {
         })}
       </nav>
       
-      {!collapsed && (
-        <div className="p-3 border-t border-white/[0.04]">
-          <div className="bg-[#0a0a0a] border border-white/[0.04] p-2.5 rounded-md flex items-center gap-2">
-             <div className="w-2 h-2 rounded-full bg-brand-amber shadow-[0_0_8px_#ffb800]"></div>
-             <div>
-                <p className="text-[10px] text-white/50 uppercase tracking-widest leading-none mb-1">Plan</p>
-                <p className="text-xs font-semibold text-white/90 leading-none">Pro Trader</p>
-             </div>
-          </div>
-        </div>
-      )}
+      <div className="p-3 border-t border-white/[0.04]">
+        {!collapsed ? (
+          <button 
+            onClick={() => setShowAccountManager(true)}
+            className="w-full bg-[#0a0a0a] border border-white/[0.04] hover:bg-white/[0.02] hover:border-white/10 transition-colors p-2.5 rounded-md flex items-center justify-between text-left group"
+          >
+            <div className="flex items-center gap-2 overflow-hidden">
+               <div className="w-2 h-2 shrink-0 rounded-full bg-brand-amber shadow-[0_0_8px_#ffb800] animate-pulse"></div>
+               <div className="min-w-0">
+                  <p className="text-[10px] text-white/50 uppercase tracking-widest leading-none mb-1">Active Account</p>
+                  <p className="text-xs font-semibold text-white/90 leading-none truncate">
+                    {activeAccount ? activeAccount.name : "No Account"}
+                  </p>
+               </div>
+            </div>
+            <ChevronDown size={14} className="text-white/30 group-hover:text-white/60 shrink-0" />
+          </button>
+        ) : (
+          <button 
+            onClick={() => setShowAccountManager(true)}
+            className="w-full bg-[#0a0a0a] border border-white/[0.04] hover:bg-white/[0.02] hover:border-white/10 transition-colors p-2.5 rounded-md flex items-center justify-center group"
+            title={activeAccount ? activeAccount.name : "No Account"}
+          >
+            <div className="w-2 h-2 shrink-0 rounded-full bg-brand-amber shadow-[0_0_8px_#ffb800] animate-pulse"></div>
+          </button>
+        )}
+      </div>
+
+      {showAccountManager && <AccountManager onClose={() => setShowAccountManager(false)} />}
     </aside>
   );
 }

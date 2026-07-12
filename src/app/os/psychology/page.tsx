@@ -13,6 +13,7 @@ import {
 import { Brain, Flame, Target, Zap, ShieldAlert, CheckCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { insforge } from "@/lib/insforge";
+import { useAccount } from "@/contexts/AccountContext";
 
 const moods = [
   { emoji: "😀", label: "Excellent", color: "border-emerald-500/50 text-emerald-500" },
@@ -23,6 +24,7 @@ const moods = [
 ];
 
 export default function PsychologyPage() {
+  const { activeAccount } = useAccount();
   const [selectedMood, setSelectedMood] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [checkins, setCheckins] = useState<any[]>([]);
@@ -38,12 +40,14 @@ export default function PsychologyPage() {
 
   useEffect(() => {
     fetchCheckins();
-  }, []);
+  }, [activeAccount]);
 
   const fetchCheckins = async () => {
+    if (!activeAccount) return;
     const { data, error } = await insforge.database
       .from("daily_checkins")
       .select("*")
+      .eq("account_id", activeAccount.id)
       .order("created_at", { ascending: true });
       
     if (!error && data) {
@@ -79,19 +83,21 @@ export default function PsychologyPage() {
   };
 
   const handleSaveCheckin = async () => {
+    if (!activeAccount) return;
     setLoading(true);
     const today = new Date().toISOString().split('T')[0];
     
     const payload = {
+      account_id: activeAccount.id,
       date: today,
-      mood: selectedMood,
+      mood: selectedMood || "Neutral",
       ...checklist
     };
 
     const { error } = await insforge.database.from("daily_checkins").insert([payload]);
     
     if (error) {
-      alert("Failed to save checkin.");
+      alert("Failed to save checkin: " + (error.message || JSON.stringify(error)));
       console.error(error);
     } else {
       alert("Check-in saved!");
