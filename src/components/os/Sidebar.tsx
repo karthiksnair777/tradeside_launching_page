@@ -23,6 +23,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useAccount } from "@/contexts/AccountContext";
 import { AccountManager } from "./AccountManager";
+import { useSidebar } from "@/contexts/SidebarContext";
 
 const navItems = [
   { name: "Dashboard", href: "/os", icon: LayoutDashboard },
@@ -44,12 +45,23 @@ export function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
   const [showAccountManager, setShowAccountManager] = useState(false);
   const { activeAccount } = useAccount();
+  const { isMobileOpen, setIsMobileOpen } = useSidebar();
 
   return (
-    <aside 
+    <>
+      {/* Mobile Backdrop overlay */}
+      {isMobileOpen && (
+        <div 
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 md:hidden"
+          onClick={() => setIsMobileOpen(false)}
+        />
+      )}
+      
+      <aside 
       className={cn(
-        "h-screen sticky top-0 border-r border-white/[0.04] bg-[#050505] transition-all duration-300 flex flex-col z-40",
-        collapsed ? "w-16" : "w-56"
+        "fixed inset-y-0 left-0 z-50 md:sticky md:top-0 h-[100dvh] border-r border-white/[0.04] bg-[#050505] transition-transform duration-300 flex flex-col md:translate-x-0 shadow-2xl md:shadow-none",
+        collapsed ? "w-16" : "w-64 md:w-56",
+        isMobileOpen ? "translate-x-0" : "-translate-x-full"
       )}
     >
       <div className="flex h-14 items-center justify-between px-4 border-b border-white/[0.04]">
@@ -92,7 +104,7 @@ export function Sidebar() {
                   ? "bg-white/[0.06] text-white" 
                   : "text-white/50 hover:text-white/90 hover:bg-white/[0.02]"
               )}
-              title={collapsed ? item.name : undefined}
+              onClick={() => setIsMobileOpen(false)}
             >
               <item.icon 
                 size={14} 
@@ -143,5 +155,6 @@ export function Sidebar() {
 
       {showAccountManager && <AccountManager onClose={() => setShowAccountManager(false)} />}
     </aside>
+    </>
   );
 }

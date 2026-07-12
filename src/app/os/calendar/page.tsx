@@ -71,69 +71,71 @@ export default function CalendarPage() {
         </div>
       </div>
 
-      <div className="bg-[#0a0a0a] p-5 rounded-2xl border border-white/10 shadow-xl">
-        <div className="grid grid-cols-7 gap-2 mb-2">
-          {weekDays.map(day => (
-            <div key={day} className="text-center text-[10px] font-bold text-white/30 uppercase tracking-widest">
-              {day}
-            </div>
-          ))}
-        </div>
-        
-        <div className="grid grid-cols-7 gap-2">
-          {calendarData.length === 0 ? (
-            <div className="col-span-7 text-center p-8 text-xs text-white/40">Loading calendar data...</div>
-          ) : (
-            <>
-              {/* Empty slots for month start (assuming month starts on Wed) */}
-              <div className="min-h-[120px] rounded bg-[#111] border border-white/5 opacity-50 pointer-events-none"></div>
-              <div className="min-h-[120px] rounded bg-[#111] border border-white/5 opacity-50 pointer-events-none"></div>
-              
-              {calendarData.map((day, idx) => (
-                <div 
-                  key={idx} 
-                  onClick={() => day.trades.length > 0 && setSelectedDay(day)}
-                  className={cn(
-                    "min-h-[120px] rounded-xl p-3 border transition-all duration-300 relative group flex flex-col justify-between",
-                    day.status === "profit" ? "bg-emerald-500/[0.05] border-emerald-500/20 hover:bg-emerald-500/10 hover:border-emerald-500/40 cursor-pointer" :
-                    day.status === "loss" ? "bg-rose-500/[0.05] border-rose-500/20 hover:bg-rose-500/10 hover:border-rose-500/40 cursor-pointer" :
-                    "bg-[#111] border-white/5 opacity-80"
-                  )}
-                >
-                  <div className="flex justify-between items-start">
-                    <span className={cn(
-                      "text-[10px] font-bold block mb-1 font-mono",
-                      day.status === "profit" ? "text-emerald-500/70" :
-                      day.status === "loss" ? "text-rose-500/70" :
-                      "text-white/20"
-                    )}>
-                      {day.date}
-                    </span>
-                    {day.avgExecScore > 0 && (
-                      <span className="text-[9px] font-bold uppercase text-brand-amber bg-brand-amber/10 px-1 rounded">
-                        EX: {day.avgExecScore}
+      <div className="bg-[#0a0a0a] p-5 rounded-2xl border border-white/10 shadow-xl overflow-x-auto">
+        <div className="min-w-[700px]">
+          <div className="grid grid-cols-7 gap-2 mb-2">
+            {weekDays.map(day => (
+              <div key={day} className="text-center text-[10px] font-bold text-white/30 uppercase tracking-widest">
+                {day}
+              </div>
+            ))}
+          </div>
+          
+          <div className="grid grid-cols-7 gap-2">
+            {calendarData.length === 0 ? (
+              <div className="col-span-7 text-center p-8 text-xs text-white/40">Loading calendar data...</div>
+            ) : (
+              <>
+                {/* Empty slots for month start (assuming month starts on Wed) */}
+                <div className="min-h-[120px] rounded bg-[#111] border border-white/5 opacity-50 pointer-events-none"></div>
+                <div className="min-h-[120px] rounded bg-[#111] border border-white/5 opacity-50 pointer-events-none"></div>
+                
+                {calendarData.map((day, idx) => (
+                  <div 
+                    key={idx} 
+                    onClick={() => day.trades.length > 0 && setSelectedDay(day)}
+                    className={cn(
+                      "min-h-[120px] rounded-xl p-3 border transition-all duration-300 relative group flex flex-col justify-between",
+                      day.status === "profit" ? "bg-emerald-500/[0.05] border-emerald-500/20 hover:bg-emerald-500/10 hover:border-emerald-500/40 cursor-pointer" :
+                      day.status === "loss" ? "bg-rose-500/[0.05] border-rose-500/20 hover:bg-rose-500/10 hover:border-rose-500/40 cursor-pointer" :
+                      "bg-[#111] border-white/5 opacity-80"
+                    )}
+                  >
+                    <div className="flex justify-between items-start">
+                      <span className={cn(
+                        "text-[10px] font-bold block mb-1 font-mono",
+                        day.status === "profit" ? "text-emerald-500/70" :
+                        day.status === "loss" ? "text-rose-500/70" :
+                        "text-white/20"
+                      )}>
+                        {day.date}
                       </span>
+                      {day.avgExecScore > 0 && (
+                        <span className="text-[9px] font-bold uppercase text-brand-amber bg-brand-amber/10 px-1 rounded">
+                          EX: {day.avgExecScore}
+                        </span>
+                      )}
+                    </div>
+
+                    {day.status !== "none" && (
+                      <div className="text-right mt-2">
+                        <div className={cn(
+                          "font-bold text-lg font-mono tracking-tight",
+                          day.status === "profit" ? "text-emerald-500" : "text-rose-500"
+                        )}>
+                          {day.pnl > 0 ? "+" : ""}${Math.abs(day.pnl)}
+                        </div>
+                        <div className="text-[10px] text-white/40 mt-1 font-bold uppercase tracking-wider flex justify-end gap-2">
+                          <span>{day.trades.length} TRD</span>
+                          <span>{day.winRate}% W</span>
+                        </div>
+                      </div>
                     )}
                   </div>
-
-                  {day.status !== "none" && (
-                    <div className="text-right mt-2">
-                      <div className={cn(
-                        "font-bold text-lg font-mono tracking-tight",
-                        day.status === "profit" ? "text-emerald-500" : "text-rose-500"
-                      )}>
-                        {day.pnl > 0 ? "+" : ""}${Math.abs(day.pnl)}
-                      </div>
-                      <div className="text-[10px] text-white/40 mt-1 font-bold uppercase tracking-wider flex justify-end gap-2">
-                        <span>{day.trades.length} TRD</span>
-                        <span>{day.winRate}% W</span>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </>
-          )}
+                ))}
+              </>
+            )}
+          </div>
         </div>
       </div>
 

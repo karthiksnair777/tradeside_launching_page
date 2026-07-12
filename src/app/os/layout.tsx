@@ -11,6 +11,8 @@ export const metadata: Metadata = {
 
 import { AccountProvider } from "@/contexts/AccountContext";
 import { AccountSwitcher } from "@/components/os/AccountSwitcher";
+import { SidebarProvider } from "@/contexts/SidebarContext";
+import { MobileMenuButton } from "@/components/os/MobileMenuButton";
 
 export default function OSLayout({
   children,
@@ -21,15 +23,19 @@ export default function OSLayout({
     // Force dark mode context for the OS section by wrapping in a div with "dark" class
     // assuming we want it strictly dark mode as requested: "Dark mode only (matching TradeSide)"
     <div className="dark bg-bg-primary text-foreground min-h-screen flex selection:bg-brand-amber/30 font-sans">
-      <AccountProvider>
-        <Sidebar />
+      <SidebarProvider>
+        <AccountProvider>
+          <Sidebar />
         
         <div className="flex-1 flex flex-col min-h-screen overflow-hidden">
           {/* Top Navigation Bar */}
-          <header className="h-16 flex items-center justify-between px-6 border-b border-border-color bg-bg-primary/80 backdrop-blur-xl z-30 sticky top-0">
-            <div className="flex items-center gap-4 flex-1">
+          <header className="h-16 flex items-center justify-between px-4 md:px-6 border-b border-border-color bg-bg-primary/80 backdrop-blur-xl z-30 sticky top-0 gap-3">
+            <div className="flex items-center gap-2 md:gap-4 flex-1 min-w-0">
+              <MobileMenuButton />
               <AccountSwitcher />
-              <GlobalSearch />
+              <div className="hidden md:block">
+                <GlobalSearch />
+              </div>
             </div>
             
             <div className="flex items-center gap-4">
@@ -50,7 +56,8 @@ export default function OSLayout({
             </div>
           </main>
         </div>
-      </AccountProvider>
+        </AccountProvider>
+      </SidebarProvider>
     </div>
   );
 }
