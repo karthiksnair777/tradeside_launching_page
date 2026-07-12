@@ -15,6 +15,7 @@ export default function OSDashboard() {
   const { activeAccount } = useAccount();
   const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [timeframe, setTimeframe] = useState<"overall" | "today">("overall");
 
   useEffect(() => {
     fetchDashboardStats();
@@ -205,36 +206,52 @@ export default function OSDashboard() {
       {loading ? (
         <div className="h-64 flex items-center justify-center text-white/30 animate-pulse">Loading analytics...</div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          
-          <StatCard 
-            title="Net P/L" 
-            value={`${stats.netPnl > 0 ? '+' : ''}$${Math.abs(stats.netPnl).toFixed(2)}`} 
-            trend={stats.netPnl >= 0 ? "up" : "down"}
-            trendValue="All Time"
-            icon={Target} 
-          />
-          <StatCard 
-            title="Win Rate" 
-            value={`${stats.winRate.toFixed(1)}%`} 
-            trend={stats.winRate >= 50 ? "up" : "down"}
-            trendValue={`${stats.totalTrades} Trades`}
-            icon={Activity} 
-          />
-          <StatCard 
-            title="Profit Factor" 
-            value={stats.profitFactor.toFixed(2)} 
-            trend={stats.profitFactor >= 1.5 ? "up" : "down"}
-            trendValue="Target: >1.5"
-            icon={ArrowUpRight} 
-          />
-          <StatCard 
-            title="Avg Exec Score" 
-            value={Math.round(stats.avgExec).toString()} 
-            trend={stats.avgExec >= 80 ? "up" : "down"}
-            trendValue="Out of 100"
-            icon={Shield} 
-          />
+        <>
+          <div className="flex items-center gap-2 mb-2 bg-[#0a0a0a] w-fit p-1 rounded-lg border border-white/10">
+            <button 
+              onClick={() => setTimeframe("overall")}
+              className={cn("px-4 py-1.5 text-xs font-bold rounded-md transition-colors", timeframe === "overall" ? "bg-white/10 text-white" : "text-white/40 hover:text-white/80")}
+            >
+              Overall Data
+            </button>
+            <button 
+              onClick={() => setTimeframe("today")}
+              className={cn("px-4 py-1.5 text-xs font-bold rounded-md transition-colors", timeframe === "today" ? "bg-white/10 text-white" : "text-white/40 hover:text-white/80")}
+            >
+              Today's Session
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            
+            <StatCard 
+              title={timeframe === "overall" ? "Net P/L" : "Today's P/L"} 
+              value={`${timeframe === "overall" ? stats.netPnl > 0 ? '+' : '' : stats.todaysPnl > 0 ? '+' : ''}$${Math.abs(timeframe === "overall" ? stats.netPnl : stats.todaysPnl).toFixed(2)}`} 
+              trend={(timeframe === "overall" ? stats.netPnl : stats.todaysPnl) >= 0 ? "up" : "down"}
+              trendValue={timeframe === "overall" ? "All Time" : "Today"}
+              icon={Target} 
+            />
+            <StatCard 
+              title={timeframe === "overall" ? "Win Rate" : "Today's Win Rate"} 
+              value={`${(timeframe === "overall" ? stats.winRate : (stats.todaysTrades > 0 ? (stats.todaysWins / stats.todaysTrades * 100) : 0)).toFixed(1)}%`} 
+              trend={(timeframe === "overall" ? stats.winRate : (stats.todaysTrades > 0 ? (stats.todaysWins / stats.todaysTrades * 100) : 0)) >= 50 ? "up" : "down"}
+              trendValue={`${timeframe === "overall" ? stats.totalTrades : stats.todaysTrades} Trades`}
+              icon={Activity} 
+            />
+            <StatCard 
+              title="Profit Factor" 
+              value={stats.profitFactor.toFixed(2)} 
+              trend={stats.profitFactor >= 1.5 ? "up" : "down"}
+              trendValue={timeframe === "overall" ? "Target: >1.5" : "All Time Metric"}
+              icon={ArrowUpRight} 
+            />
+            <StatCard 
+              title="Avg Exec Score" 
+              value={Math.round(stats.avgExec).toString()} 
+              trend={stats.avgExec >= 80 ? "up" : "down"}
+              trendValue={timeframe === "overall" ? "Out of 100" : "All Time Metric"}
+              icon={Shield} 
+            />
 
           {/* Wide Middle Section */}
           <div className="lg:col-span-3 space-y-4">
@@ -443,7 +460,7 @@ export default function OSDashboard() {
             </div>
           </div>
           
-        </div>
+        </>
       )}
     </div>
   );
